@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TJ Live Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700;800&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
+<style>
+:root{--bg:#0a0a0a;--surface:#111;--surface2:#1a1a1a;--border:#222;--text:#e0e0e0;--text-muted:#888;--accent:#00e676;--accent2:#22d3ee}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;min-height:100vh;overflow-x:hidden}
+h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:700}
+
+.live-container{max-width:600px;margin:0 auto;padding:24px 20px;min-height:100vh;display:flex;flex-direction:column}
+
+/* Header */
+.live-header{text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.live-brand{font-family:'Kanit',sans-serif;font-size:1em;color:var(--text-muted);margin-bottom:4px}
+.live-brand span{color:var(--accent)}
+.live-title{font-size:clamp(1.4em,4vw,1.8em);color:#fff;line-height:1.3}
+.live-date{color:var(--accent);font-size:0.85em;margin-top:6px}
+
+/* Topic list */
+.topic{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:12px;overflow:hidden;transition:border-color 0.3s}
+.topic.active{border-color:var(--accent);box-shadow:0 0 20px rgba(0,230,118,0.1)}
+.topic-header{padding:18px 22px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s}
+.topic-header:hover{background:var(--surface2)}
+.topic-num{font-family:'Kanit',sans-serif;font-weight:800;font-size:1.4em;color:var(--accent);min-width:32px}
+.topic-name{font-family:'Kanit',sans-serif;font-size:clamp(1em,3vw,1.2em);color:#fff;font-weight:600}
+.topic-chevron{margin-left:auto;color:var(--text-muted);transition:transform 0.3s;font-size:1.2em}
+.topic.active .topic-chevron{transform:rotate(90deg);color:var(--accent)}
+
+/* Bullets */
+.topic-body{max-height:0;overflow:hidden;transition:max-height 0.5s ease,padding 0.3s}
+.topic.active .topic-body{max-height:800px;padding:0 22px 18px 66px}
+.bullet-item{opacity:0;transform:translateY(8px);transition:opacity 0.4s,transform 0.4s;padding:6px 0;font-size:clamp(0.95em,2.5vw,1.05em);line-height:1.6;position:relative;padding-left:16px}
+.bullet-item::before{content:'▸';color:var(--accent);position:absolute;left:0;font-weight:700}
+.bullet-item.sub{padding-left:32px;color:var(--text-muted);font-size:0.9em}
+.bullet-item.sub::before{content:'–';left:16px;color:#444}
+.topic.active .bullet-item{opacity:1;transform:translateY(0)}
+.topic.active .bullet-item:nth-child(1){transition-delay:0.1s}
+.topic.active .bullet-item:nth-child(2){transition-delay:0.2s}
+.topic.active .bullet-item:nth-child(3){transition-delay:0.3s}
+.topic.active .bullet-item:nth-child(4){transition-delay:0.4s}
+.topic.active .bullet-item:nth-child(5){transition-delay:0.5s}
+.topic.active .bullet-item:nth-child(6){transition-delay:0.6s}
+.topic.active .bullet-item:nth-child(7){transition-delay:0.7s}
+.topic.active .bullet-item:nth-child(8){transition-delay:0.8s}
+
+/* Footer */
+.live-footer{margin-top:auto;padding-top:24px;text-align:center;color:var(--text-muted);font-size:0.8em;border-top:1px solid var(--border)}
+.live-footer span{color:var(--accent)}
+</style>
+</head>
+<body x-data="liveApp()" x-init="init()">
+
+<div class="live-container">
+  <div class="live-header">
+    <div class="live-brand"><span>TJ</span> Live</div>
+    <h1 class="live-title" x-text="project.title || 'Loading...'"></h1>
+    <div class="live-date" x-text="formatDate(project.live_date)"></div>
+  </div>
+
+  <template x-for="topic in (project.topics || [])" :key="topic.id">
+    <div class="topic" :class="{'active': activeTopic === topic.id}" @click="toggle(topic.id)">
+      <div class="topic-header">
+        <div class="topic-num" x-text="topic.sort_order"></div>
+        <div class="topic-name" x-text="topic.title"></div>
+        <div class="topic-chevron">▸</div>
+      </div>
+      <div class="topic-body">
+        <template x-for="b in (topic.bullets || [])" :key="b.id">
+          <div class="bullet-item" :class="{'sub': b.is_sub}" x-text="b.text"></div>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <div class="live-footer">
+    Powered by <span>TJ Live</span> — Tim & Newton
+  </div>
+</div>
+
+<script>
+function liveApp() {
+  return {
+    project: {},
+    activeTopic: null,
+
+    async init() {
+      const id = window.location.pathname.split('/').pop();
+      const token = localStorage.getItem('tj-token') || '';
+      const r = await fetch('/api/projects/' + id, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (r.ok) {
+        this.project = await r.json();
+      }
+    },
+
+    toggle(id) {
+      this.activeTopic = this.activeTopic === id ? null : id;
+    },
+
+    formatDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const days = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+      const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+      return `วัน${days[d.getDay()]}ที่ ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()+543} เวลา ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} น.`;
+    }
+  };
+}
+</script>
+</body>
+</html>

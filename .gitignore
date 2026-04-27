@@ -1,0 +1,30 @@
+# Environment / secrets
+.env
+.env.local
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Logs
+*.log
+
+# Media — large generated content (live recordings, transcripts, clips, promos)
+media/
+assets/pond.png
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

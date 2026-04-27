@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TJ Live</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
+<style>
+:root{--bg:#0a0a0a;--surface:#111;--surface2:#1a1a1a;--border:#222;--border2:#333;--text:#e0e0e0;--text-muted:#888;--accent:#00e676;--accent2:#22d3ee;--green:#22c55e;--red:#ef4444;--orange:#f59e0b}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;line-height:1.6;min-height:100vh}
+h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
+
+/* Login */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:360px;width:100%}
+.login-box h1{font-size:1.4em;margin-bottom:20px;color:#fff;text-align:center}
+.login-box h1 span{color:var(--accent)}
+.form-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:0.9em;font-family:'Sarabun',sans-serif;margin-bottom:12px}
+.form-input:focus{outline:none;border-color:var(--accent)}
+.btn{padding:10px 20px;border:none;border-radius:8px;font-family:'Kanit',sans-serif;font-weight:500;cursor:pointer;font-size:0.9em;transition:all 0.2s}
+.btn-accent{background:var(--accent);color:#000;width:100%}
+.btn-accent:hover{background:#00c864}
+.btn-sm{padding:6px 14px;font-size:0.8em}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text-muted)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-red{background:var(--red);color:#fff}
+
+/* Nav */
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.nav-brand{font-family:'Kanit',sans-serif;font-size:1.2em;font-weight:700;color:#fff;white-space:nowrap}
+.nav-actions{display:flex;gap:8px;align-items:center}
+.nav-brand span{color:var(--accent)}
+
+/* Layout */
+.container{max-width:900px;margin:0 auto;padding:24px}
+
+/* Project card */
+.project-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:16px;transition:border-color 0.2s}
+.project-card:hover{border-color:var(--border2)}
+.project-card.upcoming{border-left:3px solid var(--accent)}
+.project-card.done{opacity:0.7}
+.project-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.project-title{font-size:1.2em;color:#fff}
+.project-date{color:var(--text-muted);font-size:0.85em;margin-top:4px}
+.project-status{font-size:0.75em;padding:3px 10px;border-radius:99px;font-weight:600;font-family:'Kanit',sans-serif}
+.status-upcoming{background:rgba(0,230,118,0.15);color:var(--accent)}
+.status-done{background:rgba(136,136,136,0.15);color:var(--text-muted)}
+.btn.active-tab{background:var(--accent);color:#000;border-color:var(--accent)}
+
+/* Section headers */
+.section-header{font-size:0.8em;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:24px 0 12px;font-family:'Kanit',sans-serif}
+
+/* Topic list */
+.topic-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:8px;cursor:pointer;transition:all 0.2s}
+.topic-item:hover{border-color:var(--accent)}
+.topic-title{color:#fff;font-weight:500;display:flex;align-items:center;gap:8px}
+.topic-title .num{color:var(--accent);font-family:'Kanit',sans-serif;font-weight:700;font-size:0.9em}
+.topic-bullets{margin-top:10px;padding-left:24px;max-height:0;overflow:hidden;transition:max-height 0.4s ease,opacity 0.3s;opacity:0}
+.topic-item.open .topic-bullets{max-height:500px;opacity:1}
+.bullet{color:var(--text);font-size:0.9em;padding:4px 0;position:relative;padding-left:12px}
+.bullet::before{content:'▸';color:var(--accent);position:absolute;left:0}
+.bullet.sub{padding-left:28px;color:var(--text-muted);font-size:0.85em}
+.bullet.sub::before{content:'–';left:16px;color:var(--border2)}
+.bullet-edit{font-size:0.7em;opacity:0;margin-left:6px;transition:opacity 0.2s}
+.bullet:hover .bullet-edit{opacity:1}
+.drag-handle{cursor:grab;color:var(--text-muted);font-size:0.8em;padding:2px 4px;user-select:none;opacity:0;transition:opacity 0.2s;flex-shrink:0}
+.topic-title:hover .drag-handle,.bullet:hover .drag-handle{opacity:1}
+.sortable-ghost{opacity:0.3;background:var(--surface2)}
+.sortable-chosen{background:var(--surface2);border-color:var(--accent)}
+@media(max-width:600px){.bullet-edit{opacity:1}.drag-handle{opacity:0}}
+
+/* Promo list */
+.promo-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.promo-type{font-size:0.7em;padding:2px 8px;border-radius:6px;font-weight:600;font-family:'Kanit',sans-serif}
+.promo-type.fb_ig{background:rgba(34,211,238,0.15);color:var(--accent2)}
+.promo-type.line{background:rgba(0,230,118,0.15);color:var(--accent)}
+.promo-info{flex:1}
+.promo-caption{font-size:0.85em;color:var(--text)}
+.promo-time{font-size:0.75em;color:var(--text-muted)}
+.promo-status{font-size:0.7em;padding:2px 8px;border-radius:6px;font-weight:600}
+.promo-status.draft{background:rgba(245,158,11,0.15);color:var(--orange)}
+.promo-status.scheduled{background:rgba(0,230,118,0.15);color:var(--accent)}
+.promo-status.posted{background:rgba(136,136,136,0.15);color:var(--text-muted)}
+
+/* Video list */
+.video-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.video-title{font-size:0.85em;color:var(--text);flex:1}
+.video-time{font-size:0.75em;color:var(--text-muted)}
+
+/* Recap card */
+.recap-card{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent2);border-radius:10px;padding:14px 16px;margin-bottom:8px}
+.recap-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+.recap-badge{background:rgba(34,211,238,0.12);color:var(--accent2);font-family:'Kanit',sans-serif;font-weight:600;font-size:0.7em;letter-spacing:1px;padding:4px 10px;border-radius:6px}
+.recap-status{font-family:'Kanit',sans-serif;font-size:0.7em;color:var(--accent);background:rgba(0,230,118,0.12);padding:4px 10px;border-radius:6px}
+.recap-title{font-size:0.95em;color:#fff;font-family:'Kanit',sans-serif;font-weight:500;margin-bottom:2px}
+.recap-sub{font-size:0.8em;color:var(--text-muted);margin-bottom:12px}
+.recap-btn{display:inline-flex;align-items:center;gap:4px}
+
+/* Empty state */
+.empty{text-align:center;color:var(--text-muted);padding:32px;font-size:0.9em}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:480px;width:100%}
+.modal h3{color:#fff;margin-bottom:16px;font-size:1.1em}
+.modal label{color:var(--text-muted);font-size:0.8em;display:block;margin-bottom:4px;margin-top:12px}
+
+/* Live button */
+.btn-live{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;font-weight:700;padding:10px 24px;border-radius:10px;font-size:0.95em}
+.btn-live:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,230,118,0.3)}
+
+/* Project action buttons */
+.project-actions{display:flex;gap:6px}
+.approve-row{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+@keyframes progressBar{0%{width:0}100%{width:100%}}
+.collapsible{cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.collapsible:hover{color:var(--accent)}
+.chevron{display:inline-block;transition:transform 0.2s;font-size:0.8em}
+.chevron.open{transform:rotate(90deg);color:var(--accent)}
+
+@media(max-width:600px){
+  .container{padding:16px}
+  .project-card{padding:16px}
+  .project-header{flex-direction:column}
+  .project-actions{margin-top:10px;width:100%}
+  .project-actions .btn{flex:1}
+  .nav{flex-direction:column;gap:10px;padding:12px 16px;align-items:stretch}
+  .nav-brand{text-align:center;font-size:1.1em}
+  .nav-actions{width:100%;gap:6px}
+  .nav-actions .btn{flex:1;padding:8px 4px;font-size:0.75em;text-align:center}
+}
+</style>
+</head>
+<body x-data="app()" x-init="init()">
+
+<!-- Login / Setup -->
+<template x-if="!token">
+<div class="login-wrap">
+  <div class="login-box">
+    <h1><span>TJ</span> Live</h1>
+    <p x-show="setupMode" style="color:#9ca3af;font-size:14px;margin:0 0 12px;">First-time setup — create your login</p>
+    <input class="form-input" type="email" placeholder="Email" x-model="loginEmail">
+    <input class="form-input" type="password" :placeholder="setupMode ? 'Password (min 8 chars)' : 'Password'" x-model="loginPass" @keyup.enter="setupMode ? doSetup() : login()">
+    <button class="btn btn-accent" @click="setupMode ? doSetup() : login()" x-text="setupMode ? 'Create account' : 'Sign in'"></button>
+  </div>
+</div>
+</template>
+
+<!-- Main App -->
+<template x-if="token">
+<div>
+  <div class="nav">
+    <div class="nav-brand"><span>TJ</span> Live</div>
+    <div class="nav-actions">
+      <button class="btn btn-sm btn-outline" :class="{'active-tab': view==='home'}" @click="view='home'">Home</button>
+      <button class="btn btn-sm btn-outline" :class="{'active-tab': view==='past'}" @click="view='past'">
+        Past <span x-show="pastProjects.length" x-text="'(' + pastProjects.length + ')'"></span>
+      </button>
+      <button class="btn btn-sm btn-outline" @click="showNewProject=true">+ New</button>
+      <button class="btn btn-sm btn-outline" @click="logout()" style="color:var(--red);border-color:var(--red)">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Home view: all non-done projects (collapsed, accordion) -->
+    <template x-if="view==='home'">
+      <div>
+        <div class="section-header">Lives</div>
+
+        <!-- Non-done cards list -->
+        <template x-for="np in nonDoneProjects" :key="np.id">
+          <div class="project-card" :class="{upcoming: upcoming?.id === np.id}">
+            <div class="project-header" style="cursor:pointer" @click="toggleActive(np.id)">
+              <div>
+                <div class="project-title" x-text="np.title"></div>
+                <div class="project-date" x-text="formatDate(np.live_date)"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="project-status status-upcoming">Upcoming</span>
+                <span class="chevron" :class="{'open': upcoming?.id === np.id}">▸</span>
+              </div>
+            </div>
+
+            <!-- Expanded body (only when this card is the active/expanded one) -->
+            <template x-if="upcoming && upcoming.id === np.id">
+              <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+
+              <div class="project-actions" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+                <a :href="'/live/' + upcoming.id" class="btn btn-sm btn-live" target="_blank">Live Mode</a>
+                <button class="btn btn-sm btn-outline" @click.stop="editProject(upcoming)">Edit</button>
+              </div>
+
+              <!-- Approve row -->
+              <template x-if="!upcoming.approved_at && upcoming.topics?.length && !approving">
+                <div class="approve-row">
+                  <button class="btn btn-accent" style="width:100%" @click.stop="approveProject(upcoming.id)">✓ Approve Topics</button>
+                </div>
+              </template>
+              <template x-if="approving && !upcoming.approved_at">
+                <div class="approve-row">
+                  <div style="text-align:center;color:var(--accent);font-size:0.85em;margin-bottom:8px">Tim is creating promos...</div>
+                  <div style="background:var(--border);border-radius:8px;overflow:hidden;height:6px">
+                    <div style="background:var(--accent);height:100%;border-radius:8px;animation:progressBar 30s linear forwards"></div>
+                  </div>
+                </div>
+              </template>
+              <template x-if="upcoming.approved_at">
+                <div class="approve-row" style="text-align:center">
+                  <span style="color:var(--accent);font-size:0.85em">✓ Approved — Promos created</span>
+                  <div style="display:flex;gap:8px;margin-top:10px;justify-content:center">
+                    <button class="btn btn-sm btn-outline" @click.stop="markDone(upcoming.id)">Mark as Done + Auto-cut</button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Topics -->
+          <div class="section-header" style="margin-top:16px;display:flex;align-items:center;justify-content:space-between">
+            <span>Topics (<span x-text="upcoming.topics?.length || 0"></span>)</span>
+            <button class="btn btn-sm btn-outline" @click="addTopicModal()">+ Add Topic</button>
+          </div>
+          <div id="topics-sortable" x-ref="topicsList">
+          <template x-for="topic in (upcoming.topics || [])" :key="topic.id">
+            <div class="topic-item" :class="{'open': openTopic === topic.id}" :data-id="topic.id">
+              <div class="topic-title" @click="openTopic = openTopic === topic.id ? null : topic.id">
+                <span class="drag-handle topic-drag" @click.stop>⠿</span>
+                <span class="num" x-text="topic.sort_order + '.'"></span>
+                <span x-text="topic.title"></span>
+                <span style="margin-left:auto;display:flex;gap:6px">
+                  <span style="font-size:0.7em;color:var(--text-muted)" @click.stop="editTopicModal(topic)">✏️</span>
+                  <span style="font-size:0.7em;color:var(--red)" @click.stop="deleteTopic(topic.id)">🗑️</span>
+                </span>
+              </div>
+              <div class="topic-bullets">
+                <div class="bullets-sortable" :data-topic-id="topic.id">
+                <template x-for="b in (topic.bullets || [])" :key="b.id">
+                  <div class="bullet" :class="{'sub': b.is_sub}" :data-id="b.id" @click.stop="editBulletModal(b)">
+                    <span class="drag-handle bullet-drag" @click.stop>⠿</span>
+                    <span x-text="b.text"></span>
+                    <span class="bullet-edit" style="display:inline-flex;gap:4px">
+                      <span>✏️</span>
+                      <span @click.stop="deleteBullet(b.id)" style="color:var(--red)">🗑️</span>
+                    </span>
+                  </div>
+                </template>
+                </div>
+                <div class="bullet" style="color:var(--accent);cursor:pointer;opacity:0.6" @click.stop="addBulletModal(topic.id)">+ Add Bullet</div>
+              </div>
+            </div>
+          </template>
+          </div>
+
+          <!-- Promos -->
+          <div class="section-header collapsible" @click="showPromos = !showPromos">
+            <span>Promos (<span x-text="upcoming.promos?.length || 0"></span>)</span>
+            <span class="chevron" :class="{'open': showPromos}">▸</span>
+          </div>
+          <div x-show="showPromos" x-transition>
+          <template x-for="p in (upcoming.promos || [])" :key="p.id">
+            <div class="promo-item" style="flex-wrap:wrap;cursor:pointer" @click="editPromoModal(p)">
+              <div style="display:flex;align-items:center;gap:12px;width:100%">
+                <span class="promo-type fb_ig" x-text="p.label || 'FB/IG'"></span>
+                <div class="promo-info">
+                  <div class="promo-time" x-text="p.scheduled_at ? formatDate(p.scheduled_at) : 'ยังไม่ได้ตั้งเวลา'"></div>
+                </div>
+                <span class="promo-status" :class="p.status" x-text="p.status"></span>
+                <span style="font-size:0.7em;color:var(--text-muted)">✏️</span>
+              </div>
+              <template x-if="p.image_path">
+                <img :src="'/media/' + p.image_path.split('/').pop()" style="width:100%;border-radius:8px;margin-top:8px">
+              </template>
+              <div class="promo-caption" style="margin-top:8px;font-size:0.85em;color:var(--text);white-space:pre-wrap" x-text="p.caption_th || p.caption_en || '(ยังไม่มี caption)'"></div>
+            </div>
+          </template>
+          <template x-if="!upcoming.promos?.length">
+            <div class="empty">No promos yet</div>
+          </template>
+          </div>
+
+          <!-- Documentor Recap -->
+          <div class="section-header collapsible" @click="showRecap = !showRecap">
+            <span>Documentor Recap<span x-show="upcoming.recap_documentor_id" style="color:var(--accent2)"> ✓</span></span>
+            <span class="chevron" :class="{'open': showRecap}">▸</span>
+          </div>
+          <div x-show="showRecap" x-transition>
+            <template x-if="upcoming.recap_documentor_id">
+              <div class="recap-card">
+                <div class="recap-card-head">
+                  <span class="recap-badge">DOCUMENTOR</span>
+                  <span class="recap-status">Scheduled</span>
+                </div>
+                <div class="recap-title">Recap post พร้อม</div>
+                <div class="recap-sub" x-text="upcoming.recap_scheduled_at ? 'โพสต์ ' + formatDate(upcoming.recap_scheduled_at) + ' น.' : 'ยังไม่ตั้งเวลา'"></div>
+                <a x-show="documentorUrl" :href="documentorUrl + '/content/' + upcoming.recap_documentor_id" target="_blank" class="btn btn-sm btn-outline recap-btn">เปิด Documentor ↗</a>
+              </div>
+            </template>
+            <template x-if="!upcoming.recap_documentor_id">
+              <div class="empty">ยังไม่มี recap (สร้างอัตโนมัติหลัง Mark Done + Auto-cut)</div>
+            </template>
+          </div>
+
+          <!-- Short Videos: Tim -->
+          <div class="section-header collapsible" @click="showTimClips = !showTimClips">
+            <span>Tim's Clips (<span x-text="timClips.length"></span>)</span>
+            <span style="display:flex;align-items:center;gap:8px">
+              <button class="btn btn-sm btn-outline" @click.stop="cutClips(upcoming.id)">✂️ Cut</button>
+              <span class="chevron" :class="{'open': showTimClips}">▸</span>
+            </span>
+          </div>
+          <div x-show="showTimClips" x-transition>
+            <template x-for="v in timClips" :key="v.id">
+              <div class="video-item" style="flex-direction:column;align-items:stretch">
+                <div style="display:flex;align-items:center;gap:12px;width:100%">
+                  <div class="video-title" style="flex:1" x-text="v.title || 'Untitled clip'"></div>
+                  <span class="promo-status" :class="v.status" x-text="v.status"></span>
+                </div>
+                <div class="promo-time" x-text="v.scheduled_at ? 'โพสต์ ' + formatDate(v.scheduled_at) + ' น.' : 'ยังไม่ได้ตั้งเวลา'"></div>
+                <template x-if="v.file_path">
+                  <video controls preload="metadata" style="width:100%;border-radius:8px;margin-top:8px;background:#000">
+                    <source :src="'/media/clips/' + v.file_path.split('/').pop() + '?v=' + v.id" type="video/mp4">
+                  </video>
+                </template>
+              </div>
+            </template>
+            <template x-if="!timClips.length">
+              <div class="empty">ยังไม่มีคลิป (กด Mark Done + Auto-cut เพื่อเริ่ม)</div>
+            </template>
+          </div>
+
+              </div>
+            </template>
+            <!-- End expanded body -->
+
+          </div>
+        </template>
+        <!-- End x-for nonDoneProjects -->
+
+        <template x-if="!nonDoneProjects.length">
+          <div class="empty" style="margin-top:60px">
+            <h3 style="color:#fff;margin-bottom:8px">No active lives</h3>
+            <p>Click "+ New Live" to get started</p>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- Past view: expandable list -->
+    <template x-if="view==='past'">
+      <div id="past-section">
+        <div class="section-header">Past Lives</div>
+        <template x-if="!pastProjects.length">
+          <div class="empty">ยังไม่มี live ที่ mark done</div>
+        </template>
+        <template x-for="p in pastProjects" :key="p.id">
+          <div class="project-card done" :style="expandedPastId === p.id ? 'opacity:1;border-left:3px solid var(--text-muted)' : ''">
+            <div class="project-header" style="cursor:pointer" @click="togglePast(p.id)">
+              <div>
+                <div class="project-title" x-text="p.title"></div>
+                <div class="project-date" x-text="formatDate(p.live_date)"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="project-status status-done">Done</span>
+                <span class="chevron" :class="{'open': expandedPastId === p.id}">▸</span>
+              </div>
+            </div>
+
+            <!-- Expanded details -->
+            <template x-if="expandedPastId === p.id && expandedPast">
+              <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                <!-- Actions -->
+                <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+                  <button class="btn btn-sm btn-outline" @click.stop="reopenProject(p.id)">↩ Reopen</button>
+                  <button class="btn btn-sm btn-outline" @click.stop="cutClips(p.id)">✂️ Re-cut Clips</button>
+                  <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" @click.stop="deleteProject(p.id)">🗑️ Delete</button>
+                </div>
+
+                <!-- Topics (read) -->
+                <template x-if="expandedPast.topics?.length">
+                  <div>
+                    <div class="section-header">Topics (<span x-text="expandedPast.topics.length"></span>)</div>
+                    <template x-for="topic in expandedPast.topics" :key="'pt-'+topic.id">
+                      <div class="topic-item" :class="{'open': openPastTopic === topic.id}">
+                        <div class="topic-title" @click="openPastTopic = openPastTopic === topic.id ? null : topic.id">
+                          <span class="num" x-text="topic.sort_order + '.'"></span>
+                          <span x-text="topic.title"></span>
+                        </div>
+                        <div class="topic-bullets">
+                          <template x-for="b in (topic.bullets || [])" :key="'pb-'+b.id">
+                            <div class="bullet" :class="{'sub': b.is_sub}">
+                              <span x-text="b.text"></span>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Documentor Recap -->
+                <div class="section-header collapsible" @click="showPastRecap = !showPastRecap">
+                  <span>Documentor Recap<span x-show="expandedPast.recap_documentor_id" style="color:var(--accent2)"> ✓</span></span>
+                  <span class="chevron" :class="{'open': showPastRecap}">▸</span>
+                </div>
+                <div x-show="showPastRecap" x-transition>
+                  <template x-if="expandedPast.recap_documentor_id">
+                    <div class="recap-card">
+                      <div class="recap-card-head">
+                        <span class="recap-badge">DOCUMENTOR</span>
+                        <span class="recap-status">Scheduled</span>
+                      </div>
+                      <div class="recap-title">Recap post พร้อม</div>
+                      <div class="recap-sub" x-text="expandedPast.recap_scheduled_at ? 'โพสต์ ' + formatDate(expandedPast.recap_scheduled_at) + ' น.' : 'ยังไม่ตั้งเวลา'"></div>
+                      <a x-show="documentorUrl" :href="documentorUrl + '/content/' + expandedPast.recap_documentor_id" target="_blank" class="btn btn-sm btn-outline recap-btn">เปิด Documentor ↗</a>
+                    </div>
+                  </template>
+                  <template x-if="!expandedPast.recap_documentor_id">
+                    <div class="empty">ยังไม่มี recap</div>
+                  </template>
+                </div>
+
+                <!-- Tim's Clips -->
+                <div class="section-header collapsible" @click="showPastClips = !showPastClips">
+                  <span>Tim's Clips (<span x-text="expandedPastClips.length"></span>)</span>
+                  <span class="chevron" :class="{'open': showPastClips}">▸</span>
+                </div>
+                <div x-show="showPastClips" x-transition>
+                  <template x-for="v in expandedPastClips" :key="'pc-'+v.id">
+                    <div class="video-item" style="flex-direction:column;align-items:stretch">
+                      <div style="display:flex;align-items:center;gap:12px;width:100%">
+                        <div class="video-title" style="flex:1" x-text="v.title || 'Untitled clip'"></div>
+                        <span class="promo-status" :class="v.status" x-text="v.status"></span>
+                      </div>
+                      <div class="promo-time" x-text="v.scheduled_at ? 'โพสต์ ' + formatDate(v.scheduled_at) + ' น.' : 'ยังไม่ได้ตั้งเวลา'"></div>
+                      <template x-if="v.file_path">
+                        <video controls preload="metadata" style="width:100%;border-radius:8px;margin-top:8px;background:#000">
+                          <source :src="'/media/clips/' + v.file_path.split('/').pop() + '?v=' + v.id" type="video/mp4">
+                        </video>
+                      </template>
+                    </div>
+                  </template>
+                  <template x-if="!expandedPastClips.length">
+                    <div class="empty">ยังไม่มีคลิป</div>
+                  </template>
+                </div>
+
+                <!-- Promos -->
+                <template x-if="expandedPast.promos?.length">
+                  <div>
+                    <div class="section-header collapsible" @click="showPastPromos = !showPastPromos">
+                      <span>Promos (<span x-text="expandedPast.promos.length"></span>)</span>
+                      <span class="chevron" :class="{'open': showPastPromos}">▸</span>
+                    </div>
+                    <div x-show="showPastPromos" x-transition>
+                      <template x-for="pr in expandedPast.promos" :key="'pp-'+pr.id">
+                        <div class="promo-item" style="flex-wrap:wrap">
+                          <div style="display:flex;align-items:center;gap:12px;width:100%">
+                            <span class="promo-type fb_ig" x-text="pr.label || 'FB/IG'"></span>
+                            <div class="promo-info">
+                              <div class="promo-time" x-text="pr.scheduled_at ? formatDate(pr.scheduled_at) : 'ยังไม่ได้ตั้งเวลา'"></div>
+                            </div>
+                            <span class="promo-status" :class="pr.status" x-text="pr.status"></span>
+                          </div>
+                          <template x-if="pr.image_path">
+                            <img :src="'/media/' + pr.image_path.split('/').pop()" style="width:100%;border-radius:8px;margin-top:8px">
+                          </template>
+                          <div class="promo-caption" style="margin-top:8px;white-space:pre-wrap" x-text="pr.caption_th || pr.caption_en"></div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </template>
+
+  </div>
+
+  <!-- New Project Modal -->
+  <template x-if="showNewProject">
+    <div class="modal-bg" @click.self="showNewProject=false">
+      <div class="modal">
+        <h3>New Live</h3>
+        <label>Title</label>
+        <input class="form-input" x-model="newProject.title" placeholder="Live title">
+        <label>Date & Time</label>
+        <input class="form-input" type="datetime-local" x-model="newProject.live_date">
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn btn-accent" style="flex:1" @click="createProject()">Create</button>
+          <button class="btn btn-outline" @click="showNewProject=false">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Edit Project Modal -->
+  <template x-if="showEditProject">
+    <div class="modal-bg" @click.self="showEditProject=false">
+      <div class="modal">
+        <h3>Edit Live</h3>
+        <label>Title</label>
+        <input class="form-input" x-model="editData.title">
+        <label>Date & Time</label>
+        <input class="form-input" type="datetime-local" x-model="editData.live_date">
+        <label>Status</label>
+        <select class="form-input" x-model="editData.status">
+          <option value="upcoming">Upcoming</option>
+          <option value="done">Done</option>
+        </select>
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn btn-accent" style="flex:1" @click="saveProject()">Save</button>
+          <button class="btn btn-outline" @click="showEditProject=false">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Edit Topic Modal -->
+  <template x-if="showEditTopic">
+    <div class="modal-bg" @click.self="showEditTopic=false">
+      <div class="modal">
+        <h3 x-text="editTopicData.isNew ? 'New Topic' : 'Edit Topic'"></h3>
+        <label>Topic Title</label>
+        <input class="form-input" x-model="editTopicData.title">
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn btn-accent" style="flex:1" @click="saveTopic()">Save</button>
+          <button class="btn btn-outline" @click="showEditTopic=false">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Edit Bullet Modal -->
+  <template x-if="showEditBullet">
+    <div class="modal-bg" @click.self="showEditBullet=false">
+      <div class="modal">
+        <h3 x-text="editBulletData.isNew ? 'New Bullet' : 'Edit Bullet'"></h3>
+        <label>Text</label>
+        <textarea class="form-input" rows="3" x-model="editBulletData.text" style="resize:vertical"></textarea>
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn btn-accent" style="flex:1" @click="saveBullet()">Save</button>
+          <button class="btn btn-outline" @click="showEditBullet=false">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Edit Promo Modal -->
+  <template x-if="showEditPromo">
+    <div class="modal-bg" @click.self="showEditPromo=false">
+      <div class="modal" style="max-width:560px">
+        <h3>Edit Promo</h3>
+        <label>Caption</label>
+        <textarea class="form-input" rows="6" x-model="editPromoData.caption_th" style="resize:vertical"></textarea>
+
+        <label>Promo Image</label>
+        <template x-if="editPromoData.image_path">
+          <div style="position:relative;margin-bottom:8px">
+            <img :src="'/media/' + editPromoData.image_path.split('/').pop()" style="width:100%;border-radius:8px">
+            <button class="btn btn-sm btn-red" style="position:absolute;top:8px;right:8px" @click="deletePromoImage()">Delete</button>
+          </div>
+        </template>
+        <template x-if="!editPromoData.image_path">
+          <div style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;margin-bottom:8px">
+            <input type="file" accept="image/*" @change="uploadPromoImage($event)" style="display:none" x-ref="promoFileInput">
+            <button class="btn btn-outline" @click="$refs.promoFileInput.click()">Upload New Image</button>
+          </div>
+        </template>
+
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn btn-accent" style="flex:1" @click="savePromo()">Save</button>
+          <button class="btn btn-outline" @click="showEditPromo=false">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+</template>
+
+<script>
+function app() {
+  return {
+    token: localStorage.getItem('tj-token') || '',
+    loginEmail: '', loginPass: '',
+    documentorUrl: '',
+    publicUrl: '',
+    needsSetup: false,
+    setupMode: false,
+    projects: [],
+    upcoming: null,
+    pastProjects: [],
+    openTopic: null,
+    showNewProject: false,
+    showEditProject: false,
+    showEditTopic: false,
+    showEditBullet: false,
+    showEditPromo: false,
+    approving: false,
+    view: 'home',
+    showPromos: false,
+    showTimClips: false,
+    showRecap: false,
+    expandedPastId: null,
+    expandedPast: null,
+    openPastTopic: null,
+    showPastClips: false,
+    showPastPromos: false,
+    showPastRecap: false,
+    get timClips() { return (this.upcoming?.videos || []).filter(v => (v.source || 'tim').startsWith('tim')); },
+    get expandedPastClips() { return (this.expandedPast?.videos || []).filter(v => (v.source || 'tim').startsWith('tim')); },
+    get nonDoneProjects() { return this.projects.filter(p => p.status !== 'done'); },
+    newProject: { title: '', live_date: '' },
+    editData: {},
+    editTopicData: {},
+    editBulletData: {},
+    editPromoData: {},
+
+    async init() {
+      try {
+        const cfg = await fetch('/api/config').then(r => r.json());
+        this.documentorUrl = (cfg.documentor_url || '').replace(/\/$/, '');
+        this.publicUrl = cfg.public_url || '';
+      } catch (_) { /* config endpoint may not exist on legacy installs */ }
+      try {
+        const status = await fetch('/api/setup-status').then(r => r.json());
+        this.needsSetup = !!status.needs_setup;
+        this.setupMode = this.needsSetup;
+      } catch (_) {}
+      if (this.token) {
+        await this.loadProjects();
+      }
+    },
+
+    async doSetup() {
+      try {
+        const r = await fetch('/api/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: this.loginEmail, password: this.loginPass }),
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          alert(err.detail || 'Setup failed');
+          return;
+        }
+        const data = await r.json();
+        if (data.token) {
+          this.token = data.token;
+          localStorage.setItem('tj-token', this.token);
+          this.needsSetup = false;
+          this.setupMode = false;
+          await this.loadProjects();
+        }
+      } catch (e) {
+        alert(e.message);
+      }
+    },
+
+    async toggleActive(id) {
+      if (this.upcoming?.id === id) {
+        this.upcoming = null;
+        return;
+      }
+      await this.loadProject(id, true);
+      this.$nextTick(() => this.initSortables());
+    },
+
+    async togglePast(id) {
+      if (this.expandedPastId === id) {
+        this.expandedPastId = null;
+        this.expandedPast = null;
+        return;
+      }
+      this.expandedPastId = id;
+      const r = await fetch('/api/projects/' + id, { headers: this.headers() });
+      this.expandedPast = await r.json();
+    },
+
+    async reopenProject(id) {
+      if (!confirm('Reopen this live as upcoming?')) return;
+      await fetch('/api/projects/' + id, {
+        method: 'PUT', headers: this.headers(),
+        body: JSON.stringify({ status: 'upcoming' })
+      });
+      this.expandedPastId = null;
+      this.expandedPast = null;
+      await this.loadProjects();
+    },
+
+    async deleteProject(id) {
+      if (!confirm('Delete this live permanently? (topics, promos, and clips will be lost)')) return;
+      const r = await fetch('/api/projects/' + id, {
+        method: 'DELETE', headers: this.headers()
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert('Error: ' + (d.detail || 'delete failed'));
+        return;
+      }
+      this.expandedPastId = null;
+      this.expandedPast = null;
+      await this.loadProjects();
+    },
+
+    async login() {
+      try {
+        const r = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: this.loginEmail, password: this.loginPass })
+        });
+        const d = await r.json();
+        if (d.token) {
+          this.token = d.token;
+          localStorage.setItem('tj-token', d.token);
+          await this.loadProjects();
+        } else {
+          alert('Login failed');
+        }
+      } catch (e) { alert('Error: ' + e); }
+    },
+
+    logout() {
+      this.token = '';
+      localStorage.removeItem('tj-token');
+    },
+
+    headers() {
+      return { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' };
+    },
+
+    async loadProjects() {
+      const r = await fetch('/api/projects', { headers: this.headers() });
+      if (r.status === 401) { this.logout(); return; }
+      this.projects = await r.json();
+
+      // If an expanded card exists and is still non-done, refresh its data; otherwise collapse.
+      const currentId = this.upcoming?.id;
+      const stillActive = currentId && this.projects.find(p => p.id === currentId && p.status !== 'done');
+      if (stillActive) {
+        await this.loadProject(currentId, true);
+      } else {
+        this.upcoming = null;
+      }
+
+      this.pastProjects = this.projects.filter(p => p.status === 'done');
+      this.$nextTick(() => this.initSortables());
+    },
+
+    async loadProject(id, setUpcoming = false) {
+      const r = await fetch('/api/projects/' + id, { headers: this.headers() });
+      const data = await r.json();
+      if (setUpcoming || data.status === 'upcoming') {
+        this.upcoming = data;
+      }
+      this.$nextTick(() => this.initSortables());
+    },
+
+    initSortables() {
+      const self = this;
+      const isMobile = window.innerWidth <= 600;
+
+      // Topics sortable
+      const topicsEl = document.getElementById('topics-sortable');
+      if (topicsEl && !topicsEl._sortable) {
+        topicsEl._sortable = new Sortable(topicsEl, {
+          handle: isMobile ? '.topic-item' : '.topic-drag',
+          delay: isMobile ? 400 : 0,
+          delayOnTouchOnly: true,
+          animation: 200,
+          ghostClass: 'sortable-ghost',
+          chosenClass: 'sortable-chosen',
+          draggable: '.topic-item',
+          onEnd: async (evt) => {
+            const items = [...topicsEl.querySelectorAll('.topic-item')].map((el, i) => ({
+              id: el.dataset.id, sort_order: i + 1
+            }));
+            await fetch('/api/projects/' + self.upcoming.id + '/reorder-topics', {
+              method: 'PUT', headers: self.headers(),
+              body: JSON.stringify(items)
+            });
+            await self.loadProjects();
+          }
+        });
+      }
+
+      // Bullets sortable (for each topic)
+      document.querySelectorAll('.bullets-sortable').forEach(el => {
+        if (el._sortable) return;
+        const topicId = el.dataset.topicId;
+        el._sortable = new Sortable(el, {
+          handle: isMobile ? '.bullet' : '.bullet-drag',
+          delay: isMobile ? 400 : 0,
+          delayOnTouchOnly: true,
+          animation: 200,
+          ghostClass: 'sortable-ghost',
+          draggable: '.bullet[data-id]',
+          onEnd: async (evt) => {
+            const items = [...el.querySelectorAll('.bullet[data-id]')].map((bel, i) => ({
+              id: bel.dataset.id, sort_order: i + 1
+            }));
+            await fetch('/api/projects/topics/' + topicId + '/reorder-bullets', {
+              method: 'PUT', headers: self.headers(),
+              body: JSON.stringify(items)
+            });
+            await self.loadProjects();
+          }
+        });
+      });
+    },
+
+    async createProject() {
+      if (!this.newProject.title || !this.newProject.live_date) return;
+      await fetch('/api/projects', {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify(this.newProject)
+      });
+      this.showNewProject = false;
+      this.newProject = { title: '', live_date: '' };
+      await this.loadProjects();
+    },
+
+    editProject(p) {
+      this.editData = {
+        id: p.id,
+        title: p.title,
+        live_date: p.live_date ? p.live_date.substring(0, 16) : '',
+        status: p.status
+      };
+      this.showEditProject = true;
+    },
+
+    async saveProject() {
+      await fetch('/api/projects/' + this.editData.id, {
+        method: 'PUT',
+        headers: this.headers(),
+        body: JSON.stringify(this.editData)
+      });
+      this.showEditProject = false;
+      await this.loadProjects();
+    },
+
+    // ── Topic CRUD ──
+    addTopicModal() {
+      const nextOrder = (this.upcoming?.topics?.length || 0) + 1;
+      this.editTopicData = { id: null, title: '', sort_order: nextOrder, isNew: true };
+      this.showEditTopic = true;
+    },
+
+    editTopicModal(topic) {
+      this.editTopicData = { id: topic.id, title: topic.title, isNew: false };
+      this.showEditTopic = true;
+    },
+
+    async saveTopic() {
+      if (this.editTopicData.isNew) {
+        await fetch('/api/projects/' + this.upcoming.id + '/topics', {
+          method: 'POST', headers: this.headers(),
+          body: JSON.stringify({ title: this.editTopicData.title, sort_order: this.editTopicData.sort_order })
+        });
+      } else {
+        await fetch('/api/projects/topics/' + this.editTopicData.id, {
+          method: 'PUT', headers: this.headers(),
+          body: JSON.stringify({ title: this.editTopicData.title })
+        });
+      }
+      this.showEditTopic = false;
+      await this.loadProjects();
+    },
+
+    async deleteTopic(id) {
+      if (!confirm('Delete this topic?')) return;
+      await fetch('/api/projects/topics/' + id, { method: 'DELETE', headers: this.headers() });
+      await this.loadProjects();
+    },
+
+    // ── Bullet CRUD ──
+    addBulletModal(topicId) {
+      const topic = this.upcoming?.topics?.find(t => t.id === topicId);
+      const nextOrder = (topic?.bullets?.length || 0) + 1;
+      this.editBulletData = { id: null, topic_id: topicId, text: '', sort_order: nextOrder, is_sub: false, isNew: true };
+      this.showEditBullet = true;
+    },
+
+    editBulletModal(b) {
+      this.editBulletData = { id: b.id, text: b.text, is_sub: b.is_sub, isNew: false };
+      this.showEditBullet = true;
+    },
+
+    async saveBullet() {
+      if (this.editBulletData.isNew) {
+        await fetch('/api/projects/topics/' + this.editBulletData.topic_id + '/bullets', {
+          method: 'POST', headers: this.headers(),
+          body: JSON.stringify({ text: this.editBulletData.text, sort_order: this.editBulletData.sort_order, is_sub: this.editBulletData.is_sub })
+        });
+      } else {
+        await fetch('/api/projects/bullets/' + this.editBulletData.id, {
+          method: 'PUT', headers: this.headers(),
+          body: JSON.stringify({ text: this.editBulletData.text, is_sub: this.editBulletData.is_sub })
+        });
+      }
+      this.showEditBullet = false;
+      await this.loadProjects();
+    },
+
+    async deleteBullet(id) {
+      if (!confirm('Delete this bullet?')) return;
+      await fetch('/api/projects/bullets/' + id, { method: 'DELETE', headers: this.headers() });
+      await this.loadProjects();
+    },
+
+    async cutClips(id) {
+      if (!confirm('Start cutting clips? Tim will download the latest live, transcribe, and cut 5 highlights. This takes 10-30 min.')) return;
+      await fetch('/api/projects/' + id + '/cut-clips', {
+        method: 'POST', headers: this.headers()
+      });
+      alert('Tim is cutting clips in background. You\'ll get a Telegram when done.');
+    },
+
+    async markDone(id) {
+      const r = await fetch('/api/projects/' + id + '/auto-cut-schedule', {
+        method: 'POST', headers: this.headers()
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert('Error: ' + (d.detail || 'failed to start pipeline'));
+        return;
+      }
+      await this.loadProjects();
+    },
+
+    // ── Promo CRUD ──
+    editPromoModal(p) {
+      this.editPromoData = { id: p.id, caption_th: p.caption_th || '', image_path: p.image_path };
+      this.showEditPromo = true;
+    },
+
+    async savePromo() {
+      await fetch('/api/promos/' + this.editPromoData.id, {
+        method: 'PUT', headers: this.headers(),
+        body: JSON.stringify({ caption_th: this.editPromoData.caption_th })
+      });
+      this.showEditPromo = false;
+      await this.loadProjects();
+    },
+
+    async deletePromoImage() {
+      if (!confirm('Delete this image?')) return;
+      await fetch('/api/promos/' + this.editPromoData.id + '/image', {
+        method: 'DELETE', headers: this.headers()
+      });
+      this.editPromoData.image_path = null;
+      await this.loadProjects();
+    },
+
+    async uploadPromoImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('file', file);
+      const r = await fetch('/api/promos/' + this.editPromoData.id + '/upload-image', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + this.token },
+        body: formData
+      });
+      const data = await r.json();
+      this.editPromoData.image_path = data.image_path;
+      await this.loadProjects();
+    },
+
+    async approveProject(id) {
+      if (!confirm('Approve? Tim will create promo images and schedule FB/IG posts for the week')) return;
+      this.approving = true;
+      try {
+        const r = await fetch('/api/projects/' + id + '/approve', {
+          method: 'POST', headers: this.headers()
+        });
+        const d = await r.json();
+        if (r.ok) {
+          await this.loadProjects();
+        } else {
+          this.approving = false;
+          alert(d.detail || 'Error');
+        }
+      } catch (e) { this.approving = false; alert('Error: ' + e); }
+    },
+
+    formatDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const days = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+      const day = days[d.getDay()];
+      const dd = d.getDate();
+      const mm = d.getMonth() + 1;
+      const hh = String(d.getHours()).padStart(2,'0');
+      const min = String(d.getMinutes()).padStart(2,'0');
+      return `${day} ${dd}/${mm} ${hh}:${min}`;
+    }
+  };
+}
+</script>
+</body>
+</html>
