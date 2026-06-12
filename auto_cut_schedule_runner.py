@@ -68,8 +68,14 @@ TG_TOKEN = ENV.get("TG_BOT_TOKEN", "")
 TG_CHAT = ENV.get("TG_CHAT_ID", "")
 
 # Tool paths (override via .env if your install differs)
-CLAUDE_CLI = ENV.get("CLAUDE_CLI", "/root/.local/bin/claude")
 AUTO_EDITOR = ENV.get("AUTO_EDITOR", "auto-editor")
+
+# codex (subscription auth, NOT API key) replaces claude -p — gpt-5.4 low effort.
+# read-only sandbox: the transcript is in the prompt, no file/network access needed.
+_CODEX_NODE_BIN = "/root/.nvm/versions/node/v22.22.3/bin"
+CODEX_ENV = {**os.environ, "PATH": _CODEX_NODE_BIN + ":" + os.environ.get("PATH", ""), "HOME": "/root"}
+CODEX_CMD = ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only",
+             "-m", "gpt-5.4", "-c", "model_reasoning_effort=low", "-c", "approval_policy=never"]
 YTDLP_BIN_DEFAULT = ENV.get("YTDLP_BIN", "yt-dlp")
 
 UPLOAD_POST_BASE = "https://api.upload-post.com/api"
@@ -272,8 +278,8 @@ def pick_clips(segments, title: str, n: int = TARGET_CLIP_COUNT):
     for attempt in range(1, 3):
         try:
             r = subprocess.run(
-                [CLAUDE_CLI, "-p", prompt, "--output-format", "text"],
-                capture_output=True, text=True, timeout=600,
+                CODEX_CMD + [prompt],
+                capture_output=True, text=True, timeout=600, env=CODEX_ENV,
             )
             out = r.stdout.strip()
             if "[" in out and "]" in out:
@@ -494,8 +500,8 @@ def gen_recap(title: str, permalink: str, picks: list, segments: list):
     )
     try:
         r = subprocess.run(
-            [CLAUDE_CLI, "-p", prompt, "--output-format", "text"],
-            capture_output=True, text=True, timeout=300,
+            CODEX_CMD + [prompt],
+            capture_output=True, text=True, timeout=300, env=CODEX_ENV,
         )
         out = r.stdout.strip()
         if "{" in out and "}" in out:
@@ -562,8 +568,8 @@ def gen_caption(clip_transcript: str, prior_titles: list):
     )
     try:
         r = subprocess.run(
-            [CLAUDE_CLI, "-p", prompt, "--output-format", "text"],
-            capture_output=True, text=True, timeout=180,
+            CODEX_CMD + [prompt],
+            capture_output=True, text=True, timeout=180, env=CODEX_ENV,
         )
         out = r.stdout.strip()
         if "{" in out and "}" in out:

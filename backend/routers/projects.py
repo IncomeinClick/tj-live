@@ -265,11 +265,13 @@ async def approve_project(project_id: str, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(p)
 
-    # Trigger promo creation via Claude CLI in background (only if PROMO_SKILL_PATH and CLAUDE_CLI are configured)
+    # Trigger promo creation via codex in background (subscription auth, NOT API key).
+    # Agentic task (reads a skill + calls the API) → danger-full-access. Only if PROMO_SKILL_PATH set + codex installed.
     env = _load_env()
     skill_path = env.get("PROMO_SKILL_PATH", "")
-    claude_cli = env.get("CLAUDE_CLI", "")
-    if skill_path and claude_cli and Path(claude_cli).exists():
+    codex_node_bin = "/root/.nvm/versions/node/v22.22.3/bin"
+    codex_bin = f"{codex_node_bin}/codex"
+    if skill_path and Path(codex_bin).exists():
         import subprocess
         prompt = (
             f"A TJ Live project was just approved. "
@@ -277,11 +279,14 @@ async def approve_project(project_id: str, db: AsyncSession = Depends(get_db)):
             f"Read the skill at {skill_path} and follow it exactly. "
             f"The skill tells you to read project data from the API — do that to get the latest topics/bullets and live_date."
         )
+        codex_env = {**os.environ, "PATH": codex_node_bin + ":" + os.environ.get("PATH", ""), "HOME": "/root"}
         subprocess.Popen(
-            [claude_cli, "-p", prompt, "--output-format", "text"],
+            [codex_bin, "exec", "--skip-git-repo-check", "--ephemeral", "-s", "danger-full-access",
+             "-m", "gpt-5.4", "-c", "model_reasoning_effort=low", "-c", "approval_policy=never", prompt],
             stdout=open(LOG_DIR / f"tj-live-promo-{project_id}.log", "w"),
             stderr=subprocess.STDOUT,
             cwd=str(APP_DIR),
+            env=codex_env,
         )
 
     return {**serialize_project(p), "message": "Approved!"}

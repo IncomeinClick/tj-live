@@ -13,6 +13,13 @@ log = logging.getLogger("tj-live.clip-cutter")
 GRAPH_API = "https://graph.facebook.com/v20.0"
 APP_DIR = Path(__file__).resolve().parent.parent.parent
 
+# codex (subscription auth, NOT API key) replaces claude -p — gpt-5.4 low effort.
+# read-only sandbox: the transcript is in the prompt, no file/network access needed.
+_CODEX_NODE_BIN = "/root/.nvm/versions/node/v22.22.3/bin"
+CODEX_ENV = {**os.environ, "PATH": _CODEX_NODE_BIN + ":" + os.environ.get("PATH", ""), "HOME": "/root"}
+CODEX_CMD = ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only",
+             "-m", "gpt-5.4", "-c", "model_reasoning_effort=low", "-c", "approval_policy=never"]
+
 
 def _load_env() -> dict:
     env: dict[str, str] = {}
@@ -130,8 +137,8 @@ Only output the JSON, nothing else."""
 
     try:
         result = subprocess.run(
-            ["/root/.local/bin/claude", "-p", prompt, "--output-format", "text"],
-            capture_output=True, text=True, timeout=180
+            CODEX_CMD + [prompt],
+            capture_output=True, text=True, timeout=180, env=CODEX_ENV
         )
         output = result.stdout.strip()
         # Extract JSON
