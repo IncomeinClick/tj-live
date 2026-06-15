@@ -4,109 +4,215 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TJ Live Mode</title>
-<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700;800&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700;800;900&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
 <style>
-:root{--bg:#0a0a0a;--surface:#111;--surface2:#1a1a1a;--border:#222;--text:#e0e0e0;--text-muted:#888;--accent:#00e676;--accent2:#22d3ee}
+:root{
+  --bg:#060807;--text:#eef2f0;--text-muted:#7d8a84;
+  --accent:#00e676;--accent-soft:rgba(0,230,118,0.14);--accent-line:rgba(0,230,118,0.28);
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;min-height:100vh;overflow-x:hidden}
-h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:700}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;overflow:hidden;cursor:default}
+h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 
-.live-container{max-width:1000px;margin:0 auto;padding:24px 40px;min-height:100vh;display:flex;flex-direction:column}
+/* ── Ambient background: radial glow + orbit motif (echoes the Newton "N") ── */
+.bg-fx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg-fx .glow{position:absolute;top:-25%;right:-10%;width:75vw;height:75vw;
+  background:radial-gradient(circle,rgba(0,230,118,0.10) 0%,rgba(0,230,118,0) 60%);}
+.bg-fx .glow2{position:absolute;bottom:-30%;left:-15%;width:60vw;height:60vw;
+  background:radial-gradient(circle,rgba(0,230,118,0.05) 0%,rgba(0,230,118,0) 60%);}
+.bg-fx .orbit{position:absolute;border:1px solid var(--accent-line);border-radius:50%;opacity:0.10;
+  top:50%;left:50%;transform:translate(-50%,-50%) rotate(-24deg)}
+.bg-fx .orbit.o1{width:120vw;height:52vw}
+.bg-fx .orbit.o2{width:86vw;height:34vw;opacity:0.07}
 
-/* Header */
-.live-header{text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border)}
-.live-brand{font-family:'Kanit',sans-serif;font-size:1em;color:var(--text-muted);margin-bottom:4px}
-.live-brand span{color:var(--accent)}
-.live-title{font-size:clamp(1.4em,4vw,1.8em);color:#fff;line-height:1.3}
-.live-date{color:var(--accent);font-size:0.85em;margin-top:6px}
+/* ── Fixed chrome (camera lives bottom-left → keep that corner clear) ── */
+.chrome{position:fixed;inset:0;z-index:5;pointer-events:none}
+.progress{position:fixed;top:0;left:0;height:4px;background:var(--accent);
+  box-shadow:0 0 12px var(--accent);transition:width 0.4s ease;z-index:6}
+.counter{position:fixed;top:24px;left:32px;font-family:'Kanit',sans-serif;font-weight:600;
+  font-size:0.95em;color:var(--text-muted);letter-spacing:0.04em}
+.counter b{color:var(--accent)}
+.brand-mark{position:fixed;top:20px;right:30px;display:flex;align-items:center;gap:10px;opacity:0.9}
+.brand-mark img{height:34px}
+.brand-mark .wm{font-family:'Kanit',sans-serif;font-weight:700;font-size:0.95em;color:var(--text)}
+.brand-mark .wm small{display:block;font-size:0.6em;font-weight:500;color:var(--text-muted);letter-spacing:0.12em;margin-top:-2px}
+.hint{position:fixed;bottom:22px;right:30px;font-size:0.78em;color:var(--text-muted);
+  transition:opacity 0.6s;display:flex;gap:14px;align-items:center}
+.hint kbd{font-family:'Kanit',sans-serif;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
+  border-radius:6px;padding:2px 8px;font-size:0.9em;color:var(--text)}
 
-/* Topic list */
-.topic{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:12px;overflow:hidden;transition:border-color 0.3s}
-.topic.active{border-color:var(--accent);box-shadow:0 0 20px rgba(0,230,118,0.1)}
-.topic-header{padding:18px 22px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s}
-.topic-header:hover{background:var(--surface2)}
-.topic-num{font-family:'Kanit',sans-serif;font-weight:800;font-size:1.4em;color:var(--accent);min-width:32px}
-.topic-name{font-family:'Kanit',sans-serif;font-size:clamp(1em,3vw,1.2em);color:#fff;font-weight:600}
-.topic-chevron{margin-left:auto;color:var(--text-muted);transition:transform 0.3s;font-size:1.2em}
-.topic.active .topic-chevron{transform:rotate(90deg);color:var(--accent)}
+/* ── Stage ── */
+.stage{position:relative;z-index:2;height:100vh;width:100%;
+  display:flex;align-items:center;justify-content:center;
+  /* keep content out of the bottom-left camera zone */
+  padding:80px 64px 140px 64px}
+.slide{width:100%;max-width:1100px;text-align:center}
 
-/* Bullets */
-.topic-body{max-height:0;overflow:hidden;transition:max-height 0.5s ease,padding 0.3s}
-.topic.active .topic-body{max-height:800px;padding:0 22px 18px 66px}
-.bullet-item{opacity:0;transform:translateY(8px);transition:opacity 0.4s,transform 0.4s;padding:6px 0;font-size:clamp(0.95em,2.5vw,1.05em);line-height:1.6;position:relative;padding-left:16px}
-.bullet-item::before{content:'▸';color:var(--accent);position:absolute;left:0;font-weight:700}
-.bullet-item.sub{padding-left:32px;color:var(--text-muted);font-size:0.9em}
-.bullet-item.sub::before{content:'–';left:16px;color:#444}
-.topic.active .bullet-item{opacity:1;transform:translateY(0)}
-.topic.active .bullet-item:nth-child(1){transition-delay:0.1s}
-.topic.active .bullet-item:nth-child(2){transition-delay:0.2s}
-.topic.active .bullet-item:nth-child(3){transition-delay:0.3s}
-.topic.active .bullet-item:nth-child(4){transition-delay:0.4s}
-.topic.active .bullet-item:nth-child(5){transition-delay:0.5s}
-.topic.active .bullet-item:nth-child(6){transition-delay:0.6s}
-.topic.active .bullet-item:nth-child(7){transition-delay:0.7s}
-.topic.active .bullet-item:nth-child(8){transition-delay:0.8s}
+/* Intro / End slides */
+.splash{display:flex;flex-direction:column;align-items:center;gap:22px;animation:fadeUp 0.7s ease}
+.splash .logo{height:120px;filter:drop-shadow(0 0 30px rgba(0,230,118,0.35))}
+.splash .ttl{font-size:clamp(2em,5vw,3.6em);color:#fff}
+.splash .kicker{font-family:'Kanit',sans-serif;font-weight:600;letter-spacing:0.22em;
+  text-transform:uppercase;font-size:0.85em;color:var(--accent)}
+.splash .tagline{color:var(--text-muted);font-size:1.1em}
+.splash .url{font-family:'Kanit',sans-serif;font-weight:700;color:var(--accent);font-size:1.2em;letter-spacing:0.03em}
+.splash .start-hint{margin-top:10px;font-size:0.85em;color:var(--text-muted)}
 
-/* Footer */
-.live-footer{margin-top:auto;padding-top:24px;text-align:center;color:var(--text-muted);font-size:0.8em;border-top:1px solid var(--border)}
-.live-footer span{color:var(--accent)}
+/* Topic slide */
+.topic-num{display:inline-flex;align-items:center;justify-content:center;position:relative;
+  width:84px;height:84px;margin-bottom:24px}
+.topic-num .ring{position:absolute;inset:0;border:2px solid var(--accent-line);border-radius:50%;
+  transform:rotate(-24deg);}
+.topic-num .ring::after{content:'';position:absolute;width:8px;height:8px;background:var(--accent);
+  border-radius:50%;top:-4px;left:50%;margin-left:-4px;box-shadow:0 0 10px var(--accent)}
+.topic-num span{font-family:'Kanit',sans-serif;font-weight:900;font-size:2.2em;color:var(--accent)}
+.topic-title{font-size:clamp(2.2em,5.5vw,4em);color:#fff;margin-bottom:40px;
+  animation:fadeUp 0.6s ease}
+.bullets{display:inline-flex;flex-direction:column;gap:18px;text-align:left;max-width:980px}
+.bullet{font-size:clamp(1.3em,2.9vw,2em);line-height:1.5;position:relative;padding-left:42px;
+  opacity:0;transform:translateY(14px);transition:opacity 0.5s ease,transform 0.5s ease;color:var(--text)}
+.bullet.show{opacity:1;transform:translateY(0)}
+.bullet::before{content:'';position:absolute;left:6px;top:0.62em;width:16px;height:3px;
+  background:var(--accent);border-radius:2px;box-shadow:0 0 8px var(--accent-soft)}
+.bullet.sub{padding-left:80px;font-size:0.82em;color:var(--text-muted)}
+.bullet.sub::before{left:46px;width:10px;background:var(--text-muted);box-shadow:none;top:0.6em}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+@media (max-width:899px){
+  .stage{padding:80px 24px 120px}
+  .brand-mark .wm{display:none}
+}
 </style>
 </head>
-<body x-data="liveApp()" x-init="init()">
+<body x-data="liveApp()" x-init="init()" @keydown.window="onKey($event)" @click="next()">
 
-<div class="live-container">
-  <div class="live-header">
-    <h1 class="live-title" x-text="project.title || 'Loading...'"></h1>
-  </div>
+<div class="bg-fx">
+  <div class="glow"></div><div class="glow2"></div>
+  <div class="orbit o1"></div><div class="orbit o2"></div>
+</div>
 
-  <template x-for="topic in (project.topics || [])" :key="topic.id">
-    <div class="topic" :class="{'active': activeTopic === topic.id}" @click="toggle(topic.id)">
-      <div class="topic-header">
-        <div class="topic-num" x-text="topic.sort_order"></div>
-        <div class="topic-name" x-text="topic.title"></div>
-        <div class="topic-chevron">▸</div>
-      </div>
-      <div class="topic-body">
-        <template x-for="b in (topic.bullets || [])" :key="b.id">
-          <div class="bullet-item" :class="{'sub': b.is_sub}" x-text="b.text"></div>
+<!-- Progress bar -->
+<div class="progress" :style="'width:' + progressPct + '%'"></div>
+
+<!-- Top-left: topic counter (never bottom-left → camera) -->
+<div class="counter" x-show="cur.type==='topic'">
+  หัวข้อ <b x-text="cur.topicNum"></b> / <span x-text="topicTotal"></span>
+</div>
+
+<!-- Top-right: Newton brand mark -->
+<div class="brand-mark">
+  <img src="/assets/newton-n.png" alt="Newton">
+  <div class="wm">Newton<small>AI THAT WORKS</small></div>
+</div>
+
+<!-- Stage -->
+<div class="stage">
+
+  <!-- INTRO -->
+  <template x-if="cur.type==='intro'">
+    <div class="slide splash">
+      <img class="logo" src="/assets/newton-n.png" alt="Newton">
+      <div class="kicker">Powered by Newton</div>
+      <h1 class="ttl" x-text="project.title || ' '"></h1>
+      <div class="tagline">ระบบนำเสนอที่สร้างด้วย Newton</div>
+      <div class="start-hint">กด <b>→</b> หรือ <b>Space</b> เพื่อเริ่ม</div>
+    </div>
+  </template>
+
+  <!-- TOPIC -->
+  <template x-if="cur.type==='topic'">
+    <div class="slide">
+      <div class="topic-num"><div class="ring"></div><span x-text="cur.topicNum"></span></div>
+      <h1 class="topic-title" x-text="cur.title"></h1>
+      <div class="bullets">
+        <template x-for="(b,i) in cur.bullets" :key="b.id">
+          <div class="bullet" :class="{'sub': b.is_sub, 'show': i < revealed}" x-text="b.text"></div>
         </template>
       </div>
     </div>
   </template>
 
-  <div class="live-footer">
-    Powered by <span>Newton</span>
-  </div>
+  <!-- END -->
+  <template x-if="cur.type==='end'">
+    <div class="slide splash">
+      <img class="logo" src="/assets/newton-n.png" alt="Newton">
+      <div class="kicker">ขอบคุณครับ</div>
+      <h1 class="ttl">สอนด้วย <span style="color:var(--accent)">Newton</span></h1>
+      <div class="tagline">สร้าง AI ผู้ช่วยของคุณเองได้</div>
+      <div class="url">newton.incomeinclick.in.th</div>
+    </div>
+  </template>
+
+</div>
+
+<!-- Bottom-right hint (auto-fades) -->
+<div class="hint" :style="'opacity:' + (hintVisible ? 0.7 : 0)">
+  <span><kbd>←</kbd> <kbd>→</kbd> เลื่อน</span>
+  <span><kbd>F</kbd> เต็มจอ</span>
 </div>
 
 <script>
 function liveApp() {
   return {
     project: {},
-    activeTopic: null,
+    idx: 0,
+    revealed: 0,
+    hintVisible: true,
+
+    get slides() {
+      const topics = (this.project.topics || []);
+      let n = 0;
+      const t = topics.map(tp => ({
+        type: 'topic', title: tp.title, topicNum: ++n,
+        bullets: tp.bullets || []
+      }));
+      return [{ type: 'intro' }, ...t, { type: 'end' }];
+    },
+    get cur() { return this.slides[this.idx] || { type: 'intro' }; },
+    get topicTotal() { return (this.project.topics || []).length; },
+    get progressPct() {
+      const max = this.slides.length - 1;
+      return max > 0 ? Math.round((this.idx / max) * 100) : 0;
+    },
 
     async init() {
       const id = window.location.pathname.split('/').pop();
       const token = localStorage.getItem('tj-token') || '';
-      const r = await fetch('/api/projects/' + id, {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      if (r.ok) {
-        this.project = await r.json();
+      const r = await fetch('/api/projects/' + id, { headers: { 'Authorization': 'Bearer ' + token } });
+      if (r.ok) this.project = await r.json();
+      setTimeout(() => { this.hintVisible = false; }, 4000);
+    },
+
+    next() {
+      const s = this.cur;
+      if (s.type === 'topic' && this.revealed < s.bullets.length) { this.revealed++; return; }
+      if (this.idx < this.slides.length - 1) { this.idx++; this.revealed = 0; }
+    },
+    prev() {
+      const s = this.cur;
+      if (s.type === 'topic' && this.revealed > 0) { this.revealed--; return; }
+      if (this.idx > 0) {
+        this.idx--;
+        const p = this.cur;
+        this.revealed = p.type === 'topic' ? p.bullets.length : 0;
       }
     },
 
-    toggle(id) {
-      this.activeTopic = this.activeTopic === id ? null : id;
+    onKey(e) {
+      const k = e.key;
+      if (k === 'ArrowRight' || k === ' ' || k === 'ArrowDown' || k === 'PageDown' || k === 'Enter') { e.preventDefault(); this.next(); }
+      else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') { e.preventDefault(); this.prev(); }
+      else if (k === 'f' || k === 'F') { this.toggleFs(); }
+      else if (k === 'Home') { this.idx = 0; this.revealed = 0; }
+      else if (k === 'End') { this.idx = this.slides.length - 1; this.revealed = 0; }
     },
 
-    formatDate(iso) {
-      if (!iso) return '';
-      const d = new Date(iso);
-      const days = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
-      const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-      return `วัน${days[d.getDay()]}ที่ ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()+543} เวลา ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} น.`;
+    toggleFs() {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
     }
   };
 }
