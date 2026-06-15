@@ -45,6 +45,12 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
   padding:80px 64px 140px 64px}
 .slide{width:100%;max-width:1100px;text-align:center}
 
+/* Cover slide — the live's title, like a chapter heading */
+.cover{display:flex;flex-direction:column;align-items:center;gap:32px;animation:fadeUp 0.7s ease}
+.cover .cover-title{font-family:'Kanit',sans-serif;font-weight:900;font-size:clamp(2.6em,6.5vw,5em);
+  color:#fff;line-height:1.12;max-width:1150px;text-shadow:0 0 40px rgba(0,230,118,0.12)}
+.cover .cover-rule{width:120px;height:4px;background:var(--accent);border-radius:2px;box-shadow:0 0 18px var(--accent)}
+
 /* Topic slide — decorative orbit accent (Newton motif, NOT a sequence number) */
 .topic-accent{position:relative;width:50px;height:50px;margin:0 auto 26px}
 .topic-accent .ring{position:absolute;inset:0;border:2px solid var(--accent-line);border-radius:50%;
@@ -86,6 +92,15 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 <!-- Stage -->
 <div class="stage">
 
+  <!-- COVER (chapter title) -->
+  <template x-if="cur.type==='cover'">
+    <div class="slide cover">
+      <div class="topic-accent"><div class="ring"></div></div>
+      <h1 class="cover-title" x-text="project.title || ' '"></h1>
+      <div class="cover-rule"></div>
+    </div>
+  </template>
+
   <!-- TOPIC -->
   <template x-if="cur.type==='topic'">
     <div class="slide">
@@ -116,9 +131,10 @@ function liveApp() {
     hintVisible: true,
 
     get slides() {
-      return (this.project.topics || []).map(tp => ({
+      const topics = (this.project.topics || []).map(tp => ({
         type: 'topic', title: tp.title, bullets: tp.bullets || []
       }));
+      return [{ type: 'cover' }, ...topics];
     },
     get cur() { return this.slides[this.idx] || { type: 'topic', title: this.project.title || '', bullets: [] }; },
 
