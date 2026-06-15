@@ -176,7 +176,6 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
             <div class="project-header" style="cursor:pointer" @click="toggleActive(np.id)">
               <div>
                 <div class="project-title" x-text="np.title"></div>
-                <div class="project-date" x-text="formatDate(np.live_date)"></div>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 <span class="project-status status-upcoming">Upcoming</span>
@@ -364,7 +363,6 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
             <div class="project-header" style="cursor:pointer" @click="togglePast(p.id)">
               <div>
                 <div class="project-title" x-text="p.title"></div>
-                <div class="project-date" x-text="formatDate(p.live_date)"></div>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 <span class="project-status status-done">Done</span>
@@ -493,8 +491,6 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
         <h3>New Live</h3>
         <label>Title</label>
         <input class="form-input" x-model="newProject.title" placeholder="Live title">
-        <label>Date & Time</label>
-        <input class="form-input" type="datetime-local" x-model="newProject.live_date">
         <div style="display:flex;gap:8px;margin-top:16px">
           <button class="btn btn-accent" style="flex:1" @click="createProject()">Create</button>
           <button class="btn btn-outline" @click="showNewProject=false">Cancel</button>
@@ -510,8 +506,6 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
         <h3>Edit Live</h3>
         <label>Title</label>
         <input class="form-input" x-model="editData.title">
-        <label>Date & Time</label>
-        <input class="form-input" type="datetime-local" x-model="editData.live_date">
         <label>Status</label>
         <select class="form-input" x-model="editData.status">
           <option value="upcoming">Upcoming</option>
@@ -621,7 +615,7 @@ function app() {
     get timClips() { return (this.upcoming?.videos || []).filter(v => (v.source || 'tim').startsWith('tim')); },
     get expandedPastClips() { return (this.expandedPast?.videos || []).filter(v => (v.source || 'tim').startsWith('tim')); },
     get nonDoneProjects() { return this.projects.filter(p => p.status !== 'done'); },
-    newProject: { title: '', live_date: '' },
+    newProject: { title: '' },
     editData: {},
     editTopicData: {},
     editBulletData: {},
@@ -822,14 +816,14 @@ function app() {
     },
 
     async createProject() {
-      if (!this.newProject.title || !this.newProject.live_date) return;
+      if (!this.newProject.title) return;
       await fetch('/api/projects', {
         method: 'POST',
         headers: this.headers(),
-        body: JSON.stringify(this.newProject)
+        body: JSON.stringify({ title: this.newProject.title })
       });
       this.showNewProject = false;
-      this.newProject = { title: '', live_date: '' };
+      this.newProject = { title: '' };
       await this.loadProjects();
     },
 
@@ -837,7 +831,6 @@ function app() {
       this.editData = {
         id: p.id,
         title: p.title,
-        live_date: p.live_date ? p.live_date.substring(0, 16) : '',
         status: p.status
       };
       this.showEditProject = true;

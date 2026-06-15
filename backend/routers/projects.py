@@ -33,7 +33,7 @@ router = APIRouter(prefix="/api/projects", dependencies=[Depends(require_auth)])
 
 class ProjectCreate(BaseModel):
     title: str
-    live_date: str  # ISO datetime
+    live_date: Optional[str] = None  # ISO datetime (optional — unused for slide-mode lives)
 
 
 class ProjectUpdate(BaseModel):
@@ -102,15 +102,16 @@ def serialize_bullet(b):
 
 @router.get("")
 async def list_projects(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Project).order_by(Project.live_date.desc()))
+    result = await db.execute(select(Project).order_by(Project.created_at.desc()))
     projects = result.scalars().all()
     return [serialize_project(p) for p in projects]
 
 
 @router.post("")
 async def create_project(body: ProjectCreate, db: AsyncSession = Depends(get_db)):
-    live_dt = datetime.fromisoformat(body.live_date)
-    p = Project(title=body.title, live_date=live_dt, cron_date=compute_cron_date(live_dt))
+    live_dt = datetime.fromisoformat(body.live_date) if body.live_date else None
+    cron_dt = compute_cron_date(live_dt) if live_dt else None
+    p = Project(title=body.title, live_date=live_dt, cron_date=cron_dt)
     db.add(p)
     await db.commit()
     await db.refresh(p)

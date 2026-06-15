@@ -23,8 +23,8 @@ class Project(Base):
     __tablename__ = "projects"
     id = Column(Text, primary_key=True, default=new_id)
     title = Column(Text, nullable=False)
-    live_date = Column(DateTime, nullable=False)
-    cron_date = Column(DateTime, nullable=False)
+    live_date = Column(DateTime, nullable=True)
+    cron_date = Column(DateTime, nullable=True)
     status = Column(Text, default="upcoming")  # upcoming / live / done
     approved_at = Column(DateTime, nullable=True)
     recap_documentor_id = Column(Text, nullable=True)
