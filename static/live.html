@@ -45,16 +45,6 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
   padding:80px 64px 140px 64px}
 .slide{width:100%;max-width:1100px;text-align:center}
 
-/* Intro / End slides */
-.splash{display:flex;flex-direction:column;align-items:center;gap:22px;animation:fadeUp 0.7s ease}
-.splash .logo{height:120px;filter:drop-shadow(0 0 30px rgba(0,230,118,0.35))}
-.splash .ttl{font-size:clamp(2em,5vw,3.6em);color:#fff}
-.splash .kicker{font-family:'Kanit',sans-serif;font-weight:600;letter-spacing:0.22em;
-  text-transform:uppercase;font-size:0.85em;color:var(--accent)}
-.splash .tagline{color:var(--text-muted);font-size:1.1em}
-.splash .url{font-family:'Kanit',sans-serif;font-weight:700;color:var(--accent);font-size:1.2em;letter-spacing:0.03em}
-.splash .start-hint{margin-top:10px;font-size:0.85em;color:var(--text-muted)}
-
 /* Topic slide — decorative orbit accent (Newton motif, NOT a sequence number) */
 .topic-accent{position:relative;width:50px;height:50px;margin:0 auto 26px}
 .topic-accent .ring{position:absolute;inset:0;border:2px solid var(--accent-line);border-radius:50%;
@@ -96,17 +86,6 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 <!-- Stage -->
 <div class="stage">
 
-  <!-- INTRO -->
-  <template x-if="cur.type==='intro'">
-    <div class="slide splash">
-      <img class="logo" src="/assets/newton-n.png" alt="Newton">
-      <div class="kicker">Powered by Newton</div>
-      <h1 class="ttl" x-text="project.title || ' '"></h1>
-      <div class="tagline">ระบบนำเสนอที่สร้างด้วย Newton</div>
-      <div class="start-hint">กด <b>→</b> หรือ <b>Space</b> เพื่อเริ่ม</div>
-    </div>
-  </template>
-
   <!-- TOPIC -->
   <template x-if="cur.type==='topic'">
     <div class="slide">
@@ -117,17 +96,6 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
           <div class="bullet" :class="{'sub': b.is_sub, 'show': i < revealed}" x-text="b.text"></div>
         </template>
       </div>
-    </div>
-  </template>
-
-  <!-- END -->
-  <template x-if="cur.type==='end'">
-    <div class="slide splash">
-      <img class="logo" src="/assets/newton-n.png" alt="Newton">
-      <div class="kicker">ขอบคุณครับ</div>
-      <h1 class="ttl">สอนด้วย <span style="color:var(--accent)">Newton</span></h1>
-      <div class="tagline">สร้าง AI ผู้ช่วยของคุณเองได้</div>
-      <div class="url">newton.incomeinclick.in.th</div>
     </div>
   </template>
 
@@ -148,15 +116,11 @@ function liveApp() {
     hintVisible: true,
 
     get slides() {
-      const topics = (this.project.topics || []);
-      let n = 0;
-      const t = topics.map(tp => ({
-        type: 'topic', title: tp.title, topicNum: ++n,
-        bullets: tp.bullets || []
+      return (this.project.topics || []).map(tp => ({
+        type: 'topic', title: tp.title, bullets: tp.bullets || []
       }));
-      return [{ type: 'intro' }, ...t, { type: 'end' }];
     },
-    get cur() { return this.slides[this.idx] || { type: 'intro' }; },
+    get cur() { return this.slides[this.idx] || { type: 'topic', title: this.project.title || '', bullets: [] }; },
 
     async init() {
       const id = window.location.pathname.split('/').pop();
