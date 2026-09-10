@@ -19,8 +19,7 @@ venv/
 # Logs
 *.log
 
-# Media — large generated content (live recordings, transcripts, clips, promos)
-media/
+# Local assets that aren't part of the tool
 assets/pond.png
 
 # OS / IDE

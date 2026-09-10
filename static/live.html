@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TJ Live Mode</title>
+<title>TJ Live — Present</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700;800;900&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
 <style>
@@ -29,7 +29,9 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 
 /* ── Fixed chrome (camera lives bottom-left → keep that corner clear) ── */
 .chrome{position:fixed;inset:0;z-index:5;pointer-events:none}
-.brand-mark{position:fixed;top:26px;right:38px;display:flex;align-items:center;gap:14px;opacity:0.95}
+.brand-mark{position:fixed;top:26px;right:38px;z-index:7;display:flex;align-items:center;gap:14px;
+  opacity:0.95;text-decoration:none;transition:opacity 0.2s}
+.brand-mark:hover{opacity:1}
 .brand-mark img{height:52px}
 .brand-mark .wm{font-family:'Kanit',sans-serif;font-weight:700;font-size:1.35em;color:var(--text);line-height:1}
 .brand-mark .wm small{display:block;font-size:0.55em;font-weight:500;color:var(--text-muted);letter-spacing:0.14em;margin-top:2px}
@@ -113,7 +115,9 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 
 @media (max-width:899px){
   .stage{padding:80px 24px 120px}
-  .brand-mark .wm{display:none}
+  .brand-mark{top:16px;right:18px;gap:9px}
+  .brand-mark img{height:36px}
+  .brand-mark .wm{font-size:1em}
 }
 </style>
 </head>
@@ -126,10 +130,11 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 </div>
 
 <!-- Top-right: Newton brand mark -->
-<div class="brand-mark">
+<a class="brand-mark" href="https://newton.incomeinclick.in.th" target="_blank" rel="noopener"
+   @click.stop @mousedown.stop>
   <img src="/assets/newton-n.png" alt="Newton">
   <div class="wm">Newton<small>AI THAT WORKS</small></div>
-</div>
+</a>
 
 <!-- Stage -->
 <div class="stage" x-show="view==='slides'">

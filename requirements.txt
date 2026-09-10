@@ -3,6 +3,3 @@ uvicorn
 pydantic
 sqlalchemy
 aiosqlite
-apscheduler
-requests
-python-multipart

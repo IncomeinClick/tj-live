@@ -1,46 +1,55 @@
 # TJ Live
 
-A live-stream studio for Facebook Live: plan agendas, push promo posts before going live, then auto-process the VOD into short clips and schedule them across TikTok / Instagram / YouTube / FB Reels — all from one dashboard.
+Write an outline, present it. Type your topics and bullets in the dashboard, then open the
+same content as full-screen slides or as an animated mind map — one branch at a time, in
+front of a live audience or a camera.
+
+Built for teaching and course-building: the outline *is* the presentation, so there is no
+slide deck to maintain on the side.
 
 ## What it does
 
-- **Live planning** — projects with topics + bullets you want to cover
-- **Promo posting** — generate FB + IG image posts from project content; optionally email-blast via Brevo
-- **VOD ingest** — fetch the recorded live from FB Graph (or pull AI-cut clips from Restream)
-- **Auto clip cutter** — Whisper transcribes, an LLM picks highlights, ffmpeg cuts the clips
-- **Multi-platform scheduling** — push the cut clips to TikTok / IG Reels / YouTube Shorts / FB Reels via [upload-post.com](https://upload-post.com) on a schedule
-- **Recap posts** — optional Documentor integration to publish a recap article ~24h after the live
+- **Outline editor** — presentations → topics → bullets, nested up to 3 levels, drag to reorder
+- **Slide mode** — full-screen dark slides, one topic per slide, bullets revealed on click
+- **Mind map mode** — the same outline drawn as a radial map that grows as you click, with
+  drag-to-pan and zoom controls
+- Both modes share one position, so you can switch between them mid-sentence (`M`)
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/Income-in-Click/tj-live.git
+git clone https://github.com/IncomeinClick/tj-live.git
 cd tj-live
 
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Run
 .venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8800
 ```
 
-Open http://localhost:8800 — on first load the setup wizard asks for an email + password and writes the `.env` file for you.
+Open http://localhost:8800 — the setup wizard asks for an email + password on first load and
+writes `.env` for you. That is the whole configuration; there are no API keys to collect.
 
-## Configuration
+## Presenting
 
-All config lives in `.env`. The setup wizard auto-creates the auth fields; everything else is optional and can be added as you start using each integration. See `.env.example` for the full list.
+| Key | |
+|---|---|
+| `→` / click / space | reveal the next bullet, then the next topic |
+| `←` | step back |
+| `M` | switch slides ↔ mind map |
+| `F` | full screen |
+| `0` | reset the map view |
 
-| Group | Variables | When you need them |
-|---|---|---|
-| Auth | `USER_EMAIL`, `USER_PASS_HASH`, `SECRET_KEY` | Auto-set by setup wizard |
-| Telegram | `TG_BOT_TOKEN`, `TG_CHAT_ID` | Optional notifications when promos post / clips finish |
-| upload-post | `UPLOAD_POST_API_KEY`, `UPLOAD_POST_USER` | Scheduling clips to TikTok/IG/YT/FB |
-| Facebook | `FB_PAGE_ID` + `FB_ACCESS_TOKEN` (or Documentor) | Posting promos + downloading VODs |
-| Restream | `RESTREAM_CLIENT_ID/SECRET/REDIRECT_URI` | Pulling AI-cut clips from Restream |
-| Documentor | `DOCUMENTOR_DB`, `DOCUMENTOR_API`, `DOCUMENTOR_AUTH`, `DOCUMENTOR_TH_PROJECT`, `DOCUMENTOR_URL` | Auto recap posts |
-| Brevo | `BREVO_API_KEY`, `BREVO_LIST_IDS`, `BREVO_SENDER_NAME`, `BREVO_SENDER_EMAIL` | Email blast when announcing a live |
-| Tools | `CLAUDE_CLI`, `AUTO_EDITOR`, `YTDLP_BIN`, `PROMO_SKILL_PATH` | Override paths to local binaries |
+In mind map mode, drag the background to move the map and use the − / + buttons in the
+bottom-right to zoom. The view stays where you put it — revealing a node never moves it.
+
+Each presentation has two links, so an OBS scene can point straight at either one:
+
+```
+/live/<project-id>              slides
+/live/<project-id>?view=map     mind map
+```
 
 ## Production deployment
 
@@ -57,10 +66,18 @@ Restart=always
 
 ## Tech stack
 
-- **Backend:** FastAPI + APScheduler + SQLAlchemy/aiosqlite
-- **Frontend:** Single HTML, Alpine.js, vanilla JS
-- **External:** Whisper (CPU `faster-whisper` recommended), `ffmpeg`, `auto-editor`, `yt-dlp`
+- **Backend:** FastAPI + SQLAlchemy/aiosqlite
+- **Frontend:** two HTML files, Alpine.js, vanilla JS — no build step
 - **Storage:** SQLite
+
+## Built by Newton
+
+This tool was built by [Newton](https://newton.incomeinclick.in.th) — an AI teammate that
+works on your business the way a hire would: it builds and runs the software, writes the
+content, runs the campaigns, and reports back.
+
+TJ Live is free and MIT licensed. If it is useful to you, leave the Newton mark on the
+presentation screen — that is the only thing we ask in return.
 
 ## License
 

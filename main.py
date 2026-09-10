@@ -1,4 +1,4 @@
-"""TJ Live — Live stream dashboard with auto clip cutter + multi-platform scheduler."""
+"""TJ Live — build an outline, present it as slides or a mind map."""
 import hashlib
 import logging
 import secrets as sec
@@ -21,40 +21,27 @@ ENV = _load_env()
 PORT = int(ENV.get("PORT", 8800))
 HOST = ENV.get("HOST", "127.0.0.1")
 STATIC_DIR = APP_DIR / "static"
-MEDIA_DIR = Path(ENV.get("MEDIA_DIR") or (APP_DIR / "media"))
-MEDIA_DIR.mkdir(exist_ok=True, parents=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from backend.database import init_db
     await init_db()
-    from backend.services.scheduler import start_scheduler
-    start_scheduler()
     yield
-    from backend.services.scheduler import stop_scheduler
-    stop_scheduler()
 
 
 app = FastAPI(title="TJ Live", lifespan=lifespan)
 
 # ── Routers ──
 from backend.routers.projects import router as projects_router
-from backend.routers.promos import router as promos_router
-from backend.routers.oauth import router as oauth_router
 app.include_router(projects_router)
-app.include_router(promos_router)
-app.include_router(oauth_router)
 
 
 # ── Public config (read by the frontend on load) ──
 @app.get("/api/config")
 async def public_config():
     env = _load_env()
-    return {
-        "documentor_url": env.get("DOCUMENTOR_URL", ""),
-        "public_url": env.get("PUBLIC_URL", ""),
-    }
+    return {"public_url": env.get("PUBLIC_URL", "")}
 
 
 # ── Setup wizard + login ──
@@ -120,12 +107,11 @@ async def index():
 
 
 @app.get("/live/{project_id}", response_class=HTMLResponse)
-async def live_mode(project_id: str):
+async def present_mode(project_id: str):
     return FileResponse(STATIC_DIR / "live.html")
 
 
-# ── Media ──
-app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
+# ── Static assets ──
 ASSETS_DIR = APP_DIR / "assets"
 ASSETS_DIR.mkdir(exist_ok=True)
 app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
