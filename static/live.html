@@ -71,10 +71,13 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── Mind map mode (same topics/bullets, drawn as a map) ── */
-.map-stage{position:fixed;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.map-stage{position:fixed;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  cursor:grab;user-select:none}
+.map-stage.grabbing{cursor:grabbing}
 .map-fit{flex:0 0 auto;width:3400px;height:1700px;transform-origin:50% 50%}
 .map-canvas{position:relative;width:3400px;height:1700px;transform-origin:0 0;
   transition:transform 0.85s cubic-bezier(.4,0,.2,1)}
+.map-canvas.dragging{transition:none}
 .map-edges{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .map-edges path{fill:none;opacity:0;transition:opacity 0.5s ease}
 .map-edges path.show{opacity:1}
@@ -102,7 +105,8 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 }
 </style>
 </head>
-<body x-data="liveApp()" x-init="init()" @keydown.window="onKey($event)" @resize.window="fit()" @click="next()">
+<body x-data="liveApp()" x-init="init()" @keydown.window="onKey($event)" @resize.window="fit()"
+      @mousemove.window="onPan($event)" @mouseup.window="endPan()" @click="onStageClick()">
 
 <div class="bg-fx">
   <div class="glow"></div><div class="glow2"></div>
@@ -143,9 +147,9 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 </div>
 
 <!-- MIND MAP (same data as the slides, one branch per topic) -->
-<div class="map-stage" x-show="view==='map'">
+<div class="map-stage" x-show="view==='map'" :class="{'grabbing': dragging}" @mousedown="startPan($event)">
   <div class="map-fit" :style="'transform:scale(' + baseScale + ')'">
-    <div class="map-canvas" :style="mapTransform">
+    <div class="map-canvas" :class="{'dragging': dragging}" :style="mapTransform">
       <svg class="map-edges" id="mapEdges" viewBox="0 0 3400 1700"></svg>
       <template x-for="nd in map.nodes" :key="nd.id">
         <div class="mnode" :class="nd.cls + (vis(nd) ? ' show' : '')"
@@ -162,6 +166,7 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
   <span><kbd>←</kbd> <kbd>→</kbd> เลื่อน</span>
   <span><kbd>M</kbd> <span x-text="view==='map' ? 'สไลด์' : 'แผนที่'"></span></span>
   <span x-show="view==='map'"><kbd>0</kbd> ภาพรวม</span>
+  <span x-show="view==='map'">ลากเมาส์ = เลื่อนแผนที่</span>
   <span><kbd>F</kbd> เต็มจอ</span>
 </div>
 
@@ -179,6 +184,7 @@ function liveApp() {
     map: { nodes: [], edges: [] },
     baseScale: 1,
     overview: false,
+    panX: 0, panY: 0, dragging: false, drag: null, moved: 0,
 
     get slides() {
       const topics = (this.project.topics || []).map(tp => ({
@@ -330,7 +336,33 @@ function liveApp() {
       const k = Math.min(maxK, Math.max(minK, Math.min(MW / (x2 - x1 + pad * 2), MH / (y2 - y1 + pad * 2))));
       // Bias the framing right + up: the camera sits bottom-left on the stream.
       const fx = (x1 + x2) / 2, fy = (y1 + y2) / 2;
-      return `transform: translate(${MCX + 110 - fx * k}px, ${MCY - 80 - fy * k}px) scale(${k})`;
+      const tx = MCX + 110 - fx * k + this.panX;
+      const ty = MCY - 80 - fy * k + this.panY;
+      return `transform: translate(${tx}px, ${ty}px) scale(${k})`;
+    },
+
+    // ── Drag the map around with the mouse ──
+    startPan(e) {
+      this.moved = 0;
+      if (this.view !== 'map' || e.button !== 0) return;
+      this.drag = { x: e.clientX, y: e.clientY };
+      this.dragging = true;
+    },
+    onPan(e) {
+      if (!this.drag) return;
+      const dx = e.clientX - this.drag.x, dy = e.clientY - this.drag.y;
+      this.drag = { x: e.clientX, y: e.clientY };
+      this.moved += Math.abs(dx) + Math.abs(dy);
+      const s = this.baseScale || 1;
+      this.panX += dx / s;
+      this.panY += dy / s;
+    },
+    endPan() { this.drag = null; this.dragging = false; },
+
+    // A drag must not double as a "next" click.
+    onStageClick() {
+      if (this.moved > 6) { this.moved = 0; return; }
+      this.next();
     },
 
     // Zoom onto the branch being talked about; 0 pulls back to the whole map.
@@ -349,12 +381,14 @@ function liveApp() {
     next() {
       const s = this.cur;
       this.overview = false;
+      this.panX = 0; this.panY = 0;
       if (s.type === 'topic' && this.revealed < s.bullets.length) { this.revealed++; return; }
       if (this.idx < this.slides.length - 1) { this.idx++; this.revealed = 0; }
     },
     prev() {
       const s = this.cur;
       this.overview = false;
+      this.panX = 0; this.panY = 0;
       if (s.type === 'topic' && this.revealed > 0) { this.revealed--; return; }
       if (this.idx > 0) {
         this.idx--;
@@ -368,7 +402,7 @@ function liveApp() {
       if (k === 'ArrowRight' || k === ' ' || k === 'ArrowDown' || k === 'PageDown' || k === 'Enter') { e.preventDefault(); this.next(); }
       else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') { e.preventDefault(); this.prev(); }
       else if (k === 'm' || k === 'M') { this.view = this.view === 'map' ? 'slides' : 'map'; }
-      else if (k === '0') { this.overview = !this.overview; }
+      else if (k === '0') { this.overview = !this.overview; this.panX = 0; this.panY = 0; }
       else if (k === 'f' || k === 'F') { this.toggleFs(); }
       else if (k === 'Home') { this.idx = 0; this.revealed = 0; }
       else if (k === 'End') { this.idx = this.slides.length - 1; this.revealed = 0; }
