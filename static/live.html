@@ -70,13 +70,39 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
+/* ── Mind map mode (same topics/bullets, drawn as a map) ── */
+.map-stage{position:fixed;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.map-fit{flex:0 0 auto;width:3400px;height:1700px;transform-origin:50% 50%}
+.map-canvas{position:relative;width:3400px;height:1700px;transform-origin:0 0;
+  transition:transform 0.85s cubic-bezier(.4,0,.2,1)}
+.map-edges{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.map-edges path{fill:none;opacity:0;transition:opacity 0.5s ease}
+.map-edges path.show{opacity:1}
+.mnode{position:absolute}
+.mnode .mlabel{display:inline-block;opacity:0;transform:scale(.88);
+  transition:opacity 0.45s ease,transform 0.45s cubic-bezier(.34,1.4,.64,1)}
+.mnode.show .mlabel{opacity:1;transform:scale(1)}
+.mnode.anchor-r{transform:translate(0,-50%);text-align:left}
+.mnode.anchor-l{transform:translate(-100%,-50%);text-align:right}
+.mnode.anchor-c{transform:translate(-50%,-50%);text-align:center}
+.mnode.root .mlabel{font-family:'Kanit',sans-serif;font-weight:900;font-size:66px;line-height:1.15;
+  color:#fff;max-width:780px;padding:26px 42px;border:2px solid var(--accent-line);border-radius:28px;
+  background:rgba(0,230,118,0.07);box-shadow:0 0 60px rgba(0,230,118,0.13)}
+.mnode.topic .mlabel{font-family:'Kanit',sans-serif;font-weight:700;font-size:44px;line-height:1.2;
+  color:#fff;max-width:560px;padding:16px 30px;border:2px solid var(--accent);border-radius:20px;
+  background:rgba(0,230,118,0.10)}
+.mnode.bullet .mlabel{font-size:32px;line-height:1.35;color:var(--text);max-width:430px;
+  padding:8px 14px;border-bottom:3px solid var(--accent)}
+.mnode.sub .mlabel{font-size:26px;line-height:1.35;color:var(--text-muted);max-width:400px;
+  padding:6px 12px;border-bottom:2px solid rgba(255,255,255,0.18)}
+
 @media (max-width:899px){
   .stage{padding:80px 24px 120px}
   .brand-mark .wm{display:none}
 }
 </style>
 </head>
-<body x-data="liveApp()" x-init="init()" @keydown.window="onKey($event)" @click="next()">
+<body x-data="liveApp()" x-init="init()" @keydown.window="onKey($event)" @resize.window="fit()" @click="next()">
 
 <div class="bg-fx">
   <div class="glow"></div><div class="glow2"></div>
@@ -90,7 +116,7 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 </div>
 
 <!-- Stage -->
-<div class="stage">
+<div class="stage" x-show="view==='slides'">
 
   <!-- COVER (chapter title) -->
   <template x-if="cur.type==='cover'">
@@ -116,19 +142,43 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 
 </div>
 
+<!-- MIND MAP (same data as the slides, one branch per topic) -->
+<div class="map-stage" x-show="view==='map'">
+  <div class="map-fit" :style="'transform:scale(' + baseScale + ')'">
+    <div class="map-canvas" :style="mapTransform">
+      <svg class="map-edges" id="mapEdges" viewBox="0 0 3400 1700"></svg>
+      <template x-for="nd in map.nodes" :key="nd.id">
+        <div class="mnode" :class="nd.cls + (vis(nd) ? ' show' : '')"
+             :style="'left:' + nd.x + 'px;top:' + nd.y + 'px'">
+          <span class="mlabel" x-text="nd.text"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+
 <!-- Bottom-right hint (auto-fades) -->
 <div class="hint" :style="'opacity:' + (hintVisible ? 0.7 : 0)">
   <span><kbd>←</kbd> <kbd>→</kbd> เลื่อน</span>
+  <span><kbd>M</kbd> <span x-text="view==='map' ? 'สไลด์' : 'แผนที่'"></span></span>
+  <span x-show="view==='map'"><kbd>0</kbd> ภาพรวม</span>
   <span><kbd>F</kbd> เต็มจอ</span>
 </div>
 
 <script>
+// Mind map canvas — a fixed logical 16:9 space, scaled to fit the screen.
+const MW = 3400, MH = 1700, MCX = 1700, MCY = 850;
+
 function liveApp() {
   return {
     project: {},
     idx: 0,
     revealed: 0,
     hintVisible: true,
+    view: new URLSearchParams(location.search).get('view') === 'map' ? 'map' : 'slides',
+    map: { nodes: [], edges: [] },
+    baseScale: 1,
+    overview: false,
 
     get slides() {
       const topics = (this.project.topics || []).map(tp => ({
@@ -144,15 +194,167 @@ function liveApp() {
       const r = await fetch('/api/projects/' + id, { headers: { 'Authorization': 'Bearer ' + token } });
       if (r.ok) this.project = await r.json();
       setTimeout(() => { this.hintVisible = false; }, 4000);
+
+      this.buildMap();
+      this.drawEdges();
+      this.fit();
+      this.syncEdges();
+      this.$watch('idx', () => this.syncEdges());
+      this.$watch('revealed', () => this.syncEdges());
+    },
+
+    // ── Mind map: same project tree, laid out radially ──
+    pol(deg, rx, ry) {
+      const r = deg * Math.PI / 180;
+      return [MCX + rx * Math.cos(r), MCY + ry * Math.sin(r)];
+    },
+    anchor(deg) { return Math.cos(deg * Math.PI / 180) >= 0 ? 'anchor-r' : 'anchor-l'; },
+
+    buildMap() {
+      const topics = this.project.topics || [];
+      const nodes = [{ id: 'root', cls: 'root anchor-c', x: MCX, y: MCY, text: this.project.title || '', ti: -1, fi: -1 }];
+      const edges = [];
+      const sector = 360 / (topics.length || 1);
+
+      topics.forEach((tp, ti) => {
+        const a = -90 + sector * (ti + 0.5);
+        const [tx, ty] = this.pol(a, 800, 360);
+        const tnode = { id: 't' + ti, cls: 'topic anchor-c', x: tx, y: ty, text: tp.title, ti, fi: -1 };
+        nodes.push(tnode);
+        edges.push({ from: [MCX, MCY], to: [tx, ty], node: tnode, pr: [410, 95], color: 'rgba(0,230,118,0.45)', w: 4 });
+
+        // Bullets are a flat list — is_sub attaches to the bullet above it.
+        const groups = [];
+        (tp.bullets || []).forEach((b, fi) => {
+          if (b.is_sub && groups.length) groups[groups.length - 1].subs.push({ b, fi });
+          else groups.push({ b, fi, subs: [] });
+        });
+
+        // Each group gets a slice of the topic's sector, wider when it has subs.
+        const span = sector * 0.76;
+        const weights = groups.map(g => 1 + 0.7 * g.subs.length);
+        const total = weights.reduce((s, w) => s + w, 0) || 1;
+        let cur = a - span / 2;
+
+        groups.forEach((g, gi) => {
+          const gs = span * weights[gi] / total;
+          const ga = cur + gs / 2;
+          cur += gs;
+          const [bx, by] = this.pol(ga, 1260, 690);
+          const bnode = { id: 'b' + ti + '-' + g.fi, cls: 'bullet ' + this.anchor(ga), x: bx, y: by, text: g.b.text, ti, fi: g.fi };
+          nodes.push(bnode);
+          edges.push({ from: [tx, ty], to: [bx, by], node: bnode, pr: [310, 75], color: 'rgba(255,255,255,0.22)', w: 3 });
+
+          const s = g.subs.length;
+          g.subs.forEach((sb, k) => {
+            const sa = ga + (k - (s - 1) / 2) * (gs * 0.5 / Math.max(s, 1));
+            const [sx, sy] = this.pol(sa, 1560, 850);
+            const snode = { id: 's' + ti + '-' + sb.fi, cls: 'sub ' + this.anchor(sa), x: sx, y: sy, text: sb.b.text, ti, fi: sb.fi };
+            nodes.push(snode);
+            edges.push({ from: [bx, by], to: [sx, sy], node: snode, pr: [120, 40], color: 'rgba(255,255,255,0.14)', w: 2 });
+          });
+        });
+      });
+
+      this.map = { nodes, edges };
+    },
+
+    // A node shows once the live has reached it — the map grows as Pond clicks.
+    vis(nd) {
+      if (nd.ti < 0) return true;
+      const cti = this.idx - 1;
+      if (nd.ti < cti) return true;
+      if (nd.ti > cti) return false;
+      return nd.fi < 0 ? true : nd.fi < this.revealed;
+    },
+
+    // Gentle bow along the parent→child line: a radial map reads badly when
+    // the curves swing wide enough to cross a neighbouring branch. The start is
+    // pushed out to the parent card's edge so lines don't cut through it.
+    edgePath(from, to, pr) {
+      let [x1, y1] = from;
+      const [x2, y2] = to;
+      const ux = x2 - x1, uy = y2 - y1;
+      const ul = Math.hypot(ux, uy) || 1;
+      const t = 1 / Math.hypot((ux / ul) / pr[0], (uy / ul) / pr[1]);
+      x1 += (ux / ul) * t; y1 += (uy / ul) * t;
+
+      const dx = x2 - x1, dy = y2 - y1;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len, ny = dx / len;
+      const bow = Math.min(len * 0.10, 80);
+      const c1x = x1 + dx * 0.35 + nx * bow, c1y = y1 + dy * 0.35 + ny * bow;
+      const c2x = x1 + dx * 0.72 + nx * bow * 0.5, c2y = y1 + dy * 0.72 + ny * bow * 0.5;
+      return `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
+    },
+
+    // Paths are built once so the fade-in transition survives a re-render.
+    drawEdges() {
+      const svg = document.getElementById('mapEdges');
+      if (!svg) return;
+      svg.innerHTML = '';
+      this.map.edges.forEach(e => {
+        const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        p.setAttribute('d', this.edgePath(e.from, e.to, e.pr));
+        p.setAttribute('stroke', e.color);
+        p.setAttribute('stroke-width', e.w);
+        p.setAttribute('stroke-linecap', 'round');
+        e.el = p;
+        svg.appendChild(p);
+      });
+    },
+    syncEdges() {
+      this.map.edges.forEach(e => e.el && e.el.classList.toggle('show', this.vis(e.node)));
+    },
+
+    fit() { this.baseScale = Math.min(window.innerWidth / MW, window.innerHeight / MH); },
+
+    // Roughly how much room a node's label takes, so zoom never clips text.
+    extent(nd) {
+      const c = nd.cls;
+      const w = c.includes('root') ? 420 : (c.includes('topic') ? 330 : 440);
+      const h = c.includes('root') ? 110 : 90;
+      if (c.includes('anchor-l')) return [nd.x - w, nd.x + 20, nd.y - h, nd.y + h];
+      if (c.includes('anchor-r')) return [nd.x - 20, nd.x + w, nd.y - h, nd.y + h];
+      return [nd.x - w, nd.x + w, nd.y - h, nd.y + h];
+    },
+
+    frame(list, minK, maxK) {
+      let x1 = 1e9, y1 = 1e9, x2 = -1e9, y2 = -1e9;
+      list.forEach(nd => {
+        const [a, b, c, d] = this.extent(nd);
+        x1 = Math.min(x1, a); x2 = Math.max(x2, b);
+        y1 = Math.min(y1, c); y2 = Math.max(y2, d);
+      });
+      const pad = 120;
+      const k = Math.min(maxK, Math.max(minK, Math.min(MW / (x2 - x1 + pad * 2), MH / (y2 - y1 + pad * 2))));
+      // Bias the framing right + up: the camera sits bottom-left on the stream.
+      const fx = (x1 + x2) / 2, fy = (y1 + y2) / 2;
+      return `transform: translate(${MCX + 110 - fx * k}px, ${MCY - 80 - fy * k}px) scale(${k})`;
+    },
+
+    // Zoom onto the branch being talked about; 0 pulls back to the whole map.
+    get mapTransform() {
+      const shown = this.map.nodes.filter(nd => this.vis(nd));
+      if (this.overview) return this.frame(shown, 0.4, 1);
+
+      const cti = this.idx - 1;
+      const grp = shown.filter(nd => nd.ti === cti);
+      if (!grp.length) return 'transform: translate(0px,0px) scale(1)';
+
+      // Keep the centre node in frame — a mind map is unreadable without its root.
+      return this.frame([this.map.nodes[0], ...grp], 1, 1.5);
     },
 
     next() {
       const s = this.cur;
+      this.overview = false;
       if (s.type === 'topic' && this.revealed < s.bullets.length) { this.revealed++; return; }
       if (this.idx < this.slides.length - 1) { this.idx++; this.revealed = 0; }
     },
     prev() {
       const s = this.cur;
+      this.overview = false;
       if (s.type === 'topic' && this.revealed > 0) { this.revealed--; return; }
       if (this.idx > 0) {
         this.idx--;
@@ -165,6 +367,8 @@ function liveApp() {
       const k = e.key;
       if (k === 'ArrowRight' || k === ' ' || k === 'ArrowDown' || k === 'PageDown' || k === 'Enter') { e.preventDefault(); this.next(); }
       else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') { e.preventDefault(); this.prev(); }
+      else if (k === 'm' || k === 'M') { this.view = this.view === 'map' ? 'slides' : 'map'; }
+      else if (k === '0') { this.overview = !this.overview; }
       else if (k === 'f' || k === 'F') { this.toggleFs(); }
       else if (k === 'Home') { this.idx = 0; this.revealed = 0; }
       else if (k === 'End') { this.idx = this.slides.length - 1; this.revealed = 0; }

@@ -189,6 +189,7 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
 
               <div class="project-actions" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
                 <a :href="'/live/' + upcoming.id" class="btn btn-sm btn-live" target="_blank">Live Mode</a>
+                <a :href="'/live/' + upcoming.id + '?view=map'" class="btn btn-sm btn-outline" target="_blank">🧠 Mind Map</a>
                 <button class="btn btn-sm btn-outline" @click.stop="editProject(upcoming)">Edit</button>
                 <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" @click.stop="deleteProject(upcoming.id)">🗑️ Delete</button>
               </div>
