@@ -60,13 +60,16 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 .topic-title{font-size:clamp(2.2em,5.5vw,4em);color:#fff;margin-bottom:40px;
   animation:fadeUp 0.6s ease}
 .bullets{display:inline-flex;flex-direction:column;gap:18px;text-align:left;max-width:980px}
-.bullet{font-size:clamp(1.3em,2.9vw,2em);line-height:1.5;position:relative;padding-left:42px;
+.bullet{font-size:clamp(1.3em,2.9vw,2em);line-height:1.5;position:relative;
+  padding-left:calc(42px + var(--lv,0) * 40px);
   opacity:0;transform:translateY(14px);transition:opacity 0.5s ease,transform 0.5s ease;color:var(--text)}
 .bullet.show{opacity:1;transform:translateY(0)}
-.bullet::before{content:'';position:absolute;left:6px;top:0.62em;width:16px;height:3px;
+.bullet::before{content:'';position:absolute;left:calc(6px + var(--lv,0) * 40px);top:0.62em;width:16px;height:3px;
   background:var(--accent);border-radius:2px;box-shadow:0 0 8px var(--accent-soft)}
-.bullet.sub{padding-left:80px;font-size:0.82em;color:var(--text-muted)}
-.bullet.sub::before{left:46px;width:10px;background:var(--text-muted);box-shadow:none;top:0.6em}
+.bullet.lv1,.bullet.lv2{color:var(--text-muted)}
+.bullet.lv1{font-size:0.82em}
+.bullet.lv2{font-size:0.72em}
+.bullet.lv1::before,.bullet.lv2::before{width:10px;background:var(--text-muted);box-shadow:none;top:0.6em}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
@@ -98,6 +101,7 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
   padding:8px 14px;border-bottom:3px solid var(--accent)}
 .mnode.sub .mlabel{font-size:26px;line-height:1.35;color:var(--text-muted);max-width:400px;
   padding:6px 12px;border-bottom:2px solid rgba(255,255,255,0.18)}
+.mnode.sub2 .mlabel{font-size:21px;max-width:330px;border-bottom-width:1px}
 
 @media (max-width:899px){
   .stage{padding:80px 24px 120px}
@@ -138,7 +142,8 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
       <h1 class="topic-title" x-text="cur.title"></h1>
       <div class="bullets">
         <template x-for="(b,i) in cur.bullets" :key="b.id">
-          <div class="bullet" :class="{'sub': b.is_sub, 'show': i < revealed}" x-text="b.text"></div>
+          <div class="bullet" :class="'lv' + (b.level || 0) + (i < revealed ? ' show' : '')"
+               :style="'--lv:' + (b.level || 0)" x-text="b.text"></div>
         </template>
       </div>
     </div>
@@ -152,7 +157,7 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
     <div class="map-canvas" :class="{'dragging': dragging}" :style="mapTransform">
       <svg class="map-edges" id="mapEdges" viewBox="0 0 3400 1700"></svg>
       <template x-for="nd in map.nodes" :key="nd.id">
-        <div class="mnode" :class="nd.cls + (vis(nd) ? ' show' : '')"
+        <div class="mnode" :data-id="nd.id" :class="nd.cls + (vis(nd) ? ' show' : '')"
              :style="'left:' + nd.x + 'px;top:' + nd.y + 'px'">
           <span class="mlabel" x-text="nd.text"></span>
         </div>
@@ -173,6 +178,8 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 <script>
 // Mind map canvas — a fixed logical 16:9 space, scaled to fit the screen.
 const MW = 3400, MH = 1700, MCX = 1700, MCY = 850;
+// One ring per depth: topics, bullets, subs, sub-subs.
+const RINGS = [[800, 360], [1300, 700], [1740, 910], [2120, 1080]];
 
 function liveApp() {
   return {
@@ -202,9 +209,12 @@ function liveApp() {
       setTimeout(() => { this.hintVisible = false; }, 4000);
 
       this.buildMap();
-      this.drawEdges();
       this.fit();
-      this.syncEdges();
+      this.$nextTick(() => this.refreshMap());
+      // Labels change width once the webfonts land, and can't be measured at
+      // all while the map is hidden — remeasure on both.
+      if (document.fonts) document.fonts.ready.then(() => this.refreshMap());
+      this.$watch('view', v => { if (v === 'map') this.$nextTick(() => this.refreshMap()); });
       this.$watch('idx', () => this.syncEdges());
       this.$watch('revealed', () => this.syncEdges());
     },
@@ -216,50 +226,61 @@ function liveApp() {
     },
     anchor(deg) { return Math.cos(deg * Math.PI / 180) >= 0 ? 'anchor-r' : 'anchor-l'; },
 
+    // Flat bullet list + level → a real tree. A level that skips a step
+    // (level 2 with no level 1 above it) is pulled back to a valid depth.
+    treeify(bullets) {
+      const roots = [], open = [];
+      bullets.forEach((b, fi) => {
+        const lv = Math.min(Math.max(0, b.level || 0), open.length);
+        const node = { b, fi, kids: [] };
+        if (lv === 0) roots.push(node); else open[lv - 1].kids.push(node);
+        open[lv] = node;
+        open.length = lv + 1;
+      });
+      return roots;
+    },
+
+    leaves(n) { return n.kids.length ? n.kids.reduce((s, k) => s + this.leaves(k), 0) : 1; },
+
     buildMap() {
       const topics = this.project.topics || [];
-      const nodes = [{ id: 'root', cls: 'root anchor-c', x: MCX, y: MCY, text: this.project.title || '', ti: -1, fi: -1 }];
+      const root = { id: 'root', cls: 'root anchor-c', x: MCX, y: MCY, text: this.project.title || '', ti: -1, fi: -1 };
+      const nodes = [root];
       const edges = [];
       const sector = 360 / (topics.length || 1);
 
+      // Each child takes a slice of its parent's wedge, sized by how many
+      // leaves hang off it, and sits one ring further out.
+      const place = (kids, centre, span, depth, parent, ti) => {
+        const total = kids.reduce((s, k) => s + this.leaves(k), 0) || 1;
+        let cur = centre - span / 2;
+        kids.forEach(k => {
+          const slice = span * this.leaves(k) / total;
+          const ang = cur + slice / 2;
+          cur += slice;
+          const ring = RINGS[Math.min(depth, RINGS.length - 1)];
+          const [x, y] = this.pol(ang, ring[0], ring[1]);
+          const tier = depth === 1 ? 'bullet' : (depth === 2 ? 'sub' : 'sub sub2');
+          const node = { id: 'n' + ti + '-' + k.fi, cls: tier + ' ' + this.anchor(ang), x, y, text: k.b.text, ti, fi: k.fi };
+          nodes.push(node);
+          edges.push({
+            parent, to: [x, y], node,
+            color: depth === 1 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.14)',
+            w: depth === 1 ? 3 : 2,
+          });
+          place(k.kids, ang, slice * 0.8, depth + 1, node, ti);
+        });
+      };
+
       topics.forEach((tp, ti) => {
         const a = -90 + sector * (ti + 0.5);
-        const [tx, ty] = this.pol(a, 800, 360);
+        const [tx, ty] = this.pol(a, RINGS[0][0], RINGS[0][1]);
         const tnode = { id: 't' + ti, cls: 'topic anchor-c', x: tx, y: ty, text: tp.title, ti, fi: -1 };
         nodes.push(tnode);
-        edges.push({ from: [MCX, MCY], to: [tx, ty], node: tnode, pr: [410, 95], color: 'rgba(0,230,118,0.45)', w: 4 });
-
-        // Bullets are a flat list — is_sub attaches to the bullet above it.
-        const groups = [];
-        (tp.bullets || []).forEach((b, fi) => {
-          if (b.is_sub && groups.length) groups[groups.length - 1].subs.push({ b, fi });
-          else groups.push({ b, fi, subs: [] });
-        });
-
-        // Each group gets a slice of the topic's sector, wider when it has subs.
-        const span = sector * 0.76;
-        const weights = groups.map(g => 1 + 0.7 * g.subs.length);
-        const total = weights.reduce((s, w) => s + w, 0) || 1;
-        let cur = a - span / 2;
-
-        groups.forEach((g, gi) => {
-          const gs = span * weights[gi] / total;
-          const ga = cur + gs / 2;
-          cur += gs;
-          const [bx, by] = this.pol(ga, 1260, 690);
-          const bnode = { id: 'b' + ti + '-' + g.fi, cls: 'bullet ' + this.anchor(ga), x: bx, y: by, text: g.b.text, ti, fi: g.fi };
-          nodes.push(bnode);
-          edges.push({ from: [tx, ty], to: [bx, by], node: bnode, pr: [310, 75], color: 'rgba(255,255,255,0.22)', w: 3 });
-
-          const s = g.subs.length;
-          g.subs.forEach((sb, k) => {
-            const sa = ga + (k - (s - 1) / 2) * (gs * 0.5 / Math.max(s, 1));
-            const [sx, sy] = this.pol(sa, 1560, 850);
-            const snode = { id: 's' + ti + '-' + sb.fi, cls: 'sub ' + this.anchor(sa), x: sx, y: sy, text: sb.b.text, ti, fi: sb.fi };
-            nodes.push(snode);
-            edges.push({ from: [bx, by], to: [sx, sy], node: snode, pr: [120, 40], color: 'rgba(255,255,255,0.14)', w: 2 });
-          });
-        });
+        edges.push({ parent: root, to: [tx, ty], node: tnode, color: 'rgba(0,230,118,0.45)', w: 4 });
+        // Cap the fan: with one or two topics a full sector would wrap the
+        // branches right around the centre.
+        place(this.treeify(tp.bullets || []), a, Math.min(sector * 0.76, 150), 1, tnode, ti);
       });
 
       this.map = { nodes, edges };
@@ -274,17 +295,38 @@ function liveApp() {
       return nd.fi < 0 ? true : nd.fi < this.revealed;
     },
 
-    // Gentle bow along the parent→child line: a radial map reads badly when
-    // the curves swing wide enough to cross a neighbouring branch. The start is
-    // pushed out to the parent card's edge so lines don't cut through it.
-    edgePath(from, to, pr) {
-      let [x1, y1] = from;
-      const [x2, y2] = to;
-      const ux = x2 - x1, uy = y2 - y1;
-      const ul = Math.hypot(ux, uy) || 1;
-      const t = 1 / Math.hypot((ux / ul) / pr[0], (uy / ul) / pr[1]);
-      x1 += (ux / ul) * t; y1 += (uy / ul) * t;
+    // Real rendered size of each label, so lines and zoom respect the text
+    // instead of guessing at it (depths differ in font size).
+    measure() {
+      document.querySelectorAll('.map-canvas .mnode').forEach(el => {
+        const nd = this.map.nodes.find(n => n.id === el.dataset.id);
+        const lb = el.querySelector('.mlabel');
+        if (nd && lb) { nd.w = lb.offsetWidth; nd.h = lb.offsetHeight; }
+      });
+    },
 
+    // Where a line leaving a label should start: the point on that label's
+    // box facing the child, so no line is drawn across its own text.
+    boxExit(nd, tx, ty, pad) {
+      const w = nd.w || 260, h = nd.h || 70;
+      const c = nd.cls;
+      const cx = c.includes('anchor-r') ? nd.x + w / 2 - 6
+               : c.includes('anchor-l') ? nd.x - w / 2 + 6 : nd.x;
+      const dx = tx - cx, dy = ty - nd.y;
+      const hw = w / 2 + pad, hh = h / 2 + pad;
+      const t = Math.min(
+        Math.abs(dx) > 0.001 ? hw / Math.abs(dx) : Infinity,
+        Math.abs(dy) > 0.001 ? hh / Math.abs(dy) : Infinity,
+        0.9,
+      );
+      return [cx + dx * t, nd.y + dy * t];
+    },
+
+    // Gentle bow along the parent→child line: a radial map reads badly when
+    // the curves swing wide enough to cross a neighbouring branch.
+    edgePath(from, to) {
+      const [x1, y1] = from;
+      const [x2, y2] = to;
       const dx = x2 - x1, dy = y2 - y1;
       const len = Math.hypot(dx, dy) || 1;
       const nx = -dy / len, ny = dx / len;
@@ -301,7 +343,7 @@ function liveApp() {
       svg.innerHTML = '';
       this.map.edges.forEach(e => {
         const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        p.setAttribute('d', this.edgePath(e.from, e.to, e.pr));
+        p.setAttribute('d', this.edgePath(this.boxExit(e.parent, e.to[0], e.to[1], 14), e.to));
         p.setAttribute('stroke', e.color);
         p.setAttribute('stroke-width', e.w);
         p.setAttribute('stroke-linecap', 'round');
@@ -312,17 +354,18 @@ function liveApp() {
     syncEdges() {
       this.map.edges.forEach(e => e.el && e.el.classList.toggle('show', this.vis(e.node)));
     },
+    refreshMap() { this.measure(); this.drawEdges(); this.syncEdges(); },
 
     fit() { this.baseScale = Math.min(window.innerWidth / MW, window.innerHeight / MH); },
 
-    // Roughly how much room a node's label takes, so zoom never clips text.
+    // How much room a node's label takes, so zoom never clips text.
     extent(nd) {
       const c = nd.cls;
-      const w = c.includes('root') ? 420 : (c.includes('topic') ? 330 : 440);
-      const h = c.includes('root') ? 110 : 90;
-      if (c.includes('anchor-l')) return [nd.x - w, nd.x + 20, nd.y - h, nd.y + h];
-      if (c.includes('anchor-r')) return [nd.x - 20, nd.x + w, nd.y - h, nd.y + h];
-      return [nd.x - w, nd.x + w, nd.y - h, nd.y + h];
+      const w = nd.w || (c.includes('root') ? 700 : c.includes('topic') ? 520 : 380);
+      const h = (nd.h || 90) / 2 + 20;
+      if (c.includes('anchor-l')) return [nd.x - w - 10, nd.x + 20, nd.y - h, nd.y + h];
+      if (c.includes('anchor-r')) return [nd.x - 20, nd.x + w + 10, nd.y - h, nd.y + h];
+      return [nd.x - w / 2 - 10, nd.x + w / 2 + 10, nd.y - h, nd.y + h];
     },
 
     frame(list, minK, maxK) {
@@ -375,7 +418,7 @@ function liveApp() {
       if (!grp.length) return 'transform: translate(0px,0px) scale(1)';
 
       // Keep the centre node in frame — a mind map is unreadable without its root.
-      return this.frame([this.map.nodes[0], ...grp], 1, 1.5);
+      return this.frame([this.map.nodes[0], ...grp], 0.55, 1.5);
     },
 
     next() {

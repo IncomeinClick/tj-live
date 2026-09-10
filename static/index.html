@@ -60,10 +60,15 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
 .topic-title .num{color:var(--accent);font-family:'Kanit',sans-serif;font-weight:700;font-size:0.9em}
 .topic-bullets{margin-top:10px;padding-left:24px;max-height:0;overflow:hidden;transition:max-height 0.4s ease,opacity 0.3s;opacity:0}
 .topic-item.open .topic-bullets{max-height:500px;opacity:1}
-.bullet{color:var(--text);font-size:0.9em;padding:4px 0;position:relative;padding-left:12px}
-.bullet::before{content:'▸';color:var(--accent);position:absolute;left:0}
-.bullet.sub{padding-left:28px;color:var(--text-muted);font-size:0.85em}
-.bullet.sub::before{content:'–';left:16px;color:var(--border2)}
+.bullet{color:var(--text);font-size:0.9em;padding:4px 0;position:relative;
+  padding-left:calc(12px + var(--lv,0) * 18px)}
+.bullet::before{content:'▸';color:var(--accent);position:absolute;left:calc(var(--lv,0) * 18px)}
+.bullet.lv1,.bullet.lv2{color:var(--text-muted);font-size:0.85em}
+.bullet.lv1::before,.bullet.lv2::before{content:'–';color:var(--border2)}
+.bullet-indent{font-size:0.7em;opacity:0;margin-left:6px;transition:opacity 0.2s;display:inline-flex;gap:2px}
+.bullet:hover .bullet-indent{opacity:1}
+.bullet-indent span{cursor:pointer;padding:0 3px;border-radius:4px;background:var(--border)}
+.bullet-indent span.off{opacity:0.25;cursor:default}
 .bullet-edit{font-size:0.7em;opacity:0;margin-left:6px;transition:opacity 0.2s}
 .bullet:hover .bullet-edit{opacity:1}
 .drag-handle{cursor:grab;color:var(--text-muted);font-size:0.8em;padding:2px 4px;user-select:none;opacity:0;transition:opacity 0.2s;flex-shrink:0}
@@ -242,9 +247,14 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
               <div class="topic-bullets">
                 <div class="bullets-sortable" :data-topic-id="topic.id">
                 <template x-for="b in (topic.bullets || [])" :key="b.id">
-                  <div class="bullet" :class="{'sub': b.is_sub}" :data-id="b.id" @click.stop="editBulletModal(b)">
+                  <div class="bullet" :class="'lv' + (b.level || 0)" :style="'--lv:' + (b.level || 0)"
+                       :data-id="b.id" @click.stop="editBulletModal(b)">
                     <span class="drag-handle bullet-drag" @click.stop>⠿</span>
                     <span x-text="b.text"></span>
+                    <span class="bullet-indent">
+                      <span :class="{'off': !canIndent(topic, b, -1)}" @click.stop="setLevel(topic, b, -1)" title="เลื่อนออก">⇤</span>
+                      <span :class="{'off': !canIndent(topic, b, 1)}" @click.stop="setLevel(topic, b, 1)" title="เลื่อนเข้า">⇥</span>
+                    </span>
                     <span class="bullet-edit" style="display:inline-flex;gap:4px">
                       <span>✏️</span>
                       <span @click.stop="deleteBullet(b.id)" style="color:var(--red)">🗑️</span>
@@ -393,7 +403,7 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
                         </div>
                         <div class="topic-bullets">
                           <template x-for="b in (topic.bullets || [])" :key="'pb-'+b.id">
-                            <div class="bullet" :class="{'sub': b.is_sub}">
+                            <div class="bullet" :class="'lv' + (b.level || 0)" :style="'--lv:' + (b.level || 0)">
                               <span x-text="b.text"></span>
                             </div>
                           </template>
@@ -583,6 +593,9 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
 </template>
 
 <script>
+// Bullets can nest 3 tiers deep (bullet → sub → sub-sub); deeper is unreadable on stream.
+const MAX_BULLET_LEVEL = 2;
+
 function app() {
   return {
     token: localStorage.getItem('tj-token') || '',
@@ -884,26 +897,62 @@ function app() {
     // ── Bullet CRUD ──
     addBulletModal(topicId) {
       const topic = this.upcoming?.topics?.find(t => t.id === topicId);
-      const nextOrder = (topic?.bullets?.length || 0) + 1;
-      this.editBulletData = { id: null, topic_id: topicId, text: '', sort_order: nextOrder, is_sub: false, isNew: true };
+      const list = topic?.bullets || [];
+      const last = list[list.length - 1];
+      // A new bullet lands at the same depth as the one above it.
+      this.editBulletData = { id: null, topic_id: topicId, text: '', sort_order: list.length + 1,
+                              level: last ? (last.level || 0) : 0, isNew: true };
       this.showEditBullet = true;
     },
 
     editBulletModal(b) {
-      this.editBulletData = { id: b.id, text: b.text, is_sub: b.is_sub, isNew: false };
+      this.editBulletData = { id: b.id, text: b.text, level: b.level || 0, isNew: false };
       this.showEditBullet = true;
+    },
+
+    // ── Bullet depth (⇤ / ⇥) ──
+    // Outline rule: a bullet can sit at most one level deeper than the one
+    // above it, so there is never a sub-bullet without a parent.
+    maxLevelFor(topic, b) {
+      const list = topic.bullets || [];
+      const i = list.findIndex(x => x.id === b.id);
+      if (i <= 0) return 0;
+      return Math.min((list[i - 1].level || 0) + 1, MAX_BULLET_LEVEL);
+    },
+
+    canIndent(topic, b, delta) {
+      const target = (b.level || 0) + delta;
+      return target >= 0 && target <= this.maxLevelFor(topic, b);
+    },
+
+    async setLevel(topic, b, delta) {
+      if (!this.canIndent(topic, b, delta)) return;
+      const list = topic.bullets || [];
+      const i = list.findIndex(x => x.id === b.id);
+      const from = b.level || 0;
+      // Anything indented under this bullet moves with it.
+      const moves = [{ id: b.id, level: from + delta }];
+      for (let j = i + 1; j < list.length && (list[j].level || 0) > from; j++) {
+        moves.push({ id: list[j].id, level: Math.max(0, (list[j].level || 0) + delta) });
+      }
+      for (const m of moves) {
+        await fetch('/api/projects/bullets/' + m.id, {
+          method: 'PUT', headers: this.headers(), body: JSON.stringify({ level: m.level })
+        });
+      }
+      await this.loadProjects();
     },
 
     async saveBullet() {
       if (this.editBulletData.isNew) {
         await fetch('/api/projects/topics/' + this.editBulletData.topic_id + '/bullets', {
           method: 'POST', headers: this.headers(),
-          body: JSON.stringify({ text: this.editBulletData.text, sort_order: this.editBulletData.sort_order, is_sub: this.editBulletData.is_sub })
+          body: JSON.stringify({ text: this.editBulletData.text, sort_order: this.editBulletData.sort_order, level: this.editBulletData.level })
         });
       } else {
         await fetch('/api/projects/bullets/' + this.editBulletData.id, {
           method: 'PUT', headers: this.headers(),
-          body: JSON.stringify({ text: this.editBulletData.text, is_sub: this.editBulletData.is_sub })
+          body: JSON.stringify({ text: this.editBulletData.text, level: this.editBulletData.level })
         });
       }
       this.showEditBullet = false;

@@ -47,7 +47,7 @@ class Bullet(Base):
     topic_id = Column(Text, ForeignKey("topics.id", ondelete="CASCADE"), nullable=False)
     sort_order = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
-    is_sub = Column(Boolean, default=False)
+    level = Column(Integer, default=0)  # 0 = bullet, 1 = sub, 2 = sub-sub
 
 
 class Promo(Base):

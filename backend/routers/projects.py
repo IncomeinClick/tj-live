@@ -55,13 +55,13 @@ class TopicUpdate(BaseModel):
 class BulletCreate(BaseModel):
     text: str
     sort_order: int
-    is_sub: bool = False
+    level: int = 0
 
 
 class BulletUpdate(BaseModel):
     text: Optional[str] = None
     sort_order: Optional[int] = None
-    is_sub: Optional[bool] = None
+    level: Optional[int] = None
 
 
 def compute_cron_date(live_date: datetime) -> datetime:
@@ -97,7 +97,7 @@ def serialize_topic(t, bullets=None):
 
 
 def serialize_bullet(b):
-    return {"id": b.id, "topic_id": b.topic_id, "sort_order": b.sort_order, "text": b.text, "is_sub": b.is_sub}
+    return {"id": b.id, "topic_id": b.topic_id, "sort_order": b.sort_order, "text": b.text, "level": b.level or 0}
 
 
 @router.get("")
@@ -363,7 +363,7 @@ async def create_bullet(topic_id: str, body: BulletCreate, db: AsyncSession = De
     t = await db.get(Topic, topic_id)
     if not t:
         raise HTTPException(404, "Topic not found")
-    b = Bullet(topic_id=topic_id, text=body.text, sort_order=body.sort_order, is_sub=body.is_sub)
+    b = Bullet(topic_id=topic_id, text=body.text, sort_order=body.sort_order, level=max(0, body.level))
     db.add(b)
     await db.commit()
     await db.refresh(b)
@@ -379,8 +379,8 @@ async def update_bullet(bullet_id: str, body: BulletUpdate, db: AsyncSession = D
         b.text = body.text
     if body.sort_order is not None:
         b.sort_order = body.sort_order
-    if body.is_sub is not None:
-        b.is_sub = body.is_sub
+    if body.level is not None:
+        b.level = max(0, body.level)
     await db.commit()
     await db.refresh(b)
     return serialize_bullet(b)
