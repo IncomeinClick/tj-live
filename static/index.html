@@ -58,8 +58,12 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
 .topic-item:hover{border-color:var(--accent)}
 .topic-title{color:#fff;font-weight:500;display:flex;align-items:center;gap:8px}
 .topic-title .num{color:var(--accent);font-family:'Kanit',sans-serif;font-weight:700;font-size:0.9em}
-.topic-bullets{margin-top:10px;padding-left:24px;max-height:0;overflow:hidden;transition:max-height 0.4s ease,opacity 0.3s;opacity:0}
-.topic-item.open .topic-bullets{max-height:500px;opacity:1}
+/* Grid rows animate straight to the content's own height, so a topic can hold
+   as many bullets as it likes without a fixed max-height clipping the list. */
+.topic-bullets{display:grid;grid-template-rows:0fr;margin-top:10px;padding-left:24px;
+  transition:grid-template-rows 0.4s ease,opacity 0.3s;opacity:0}
+.topic-bullets>.tb-inner{overflow:hidden;min-height:0}
+.topic-item.open .topic-bullets{grid-template-rows:1fr;opacity:1}
 .bullet{color:var(--text);font-size:0.9em;padding:4px 0;position:relative;
   padding-left:calc(12px + var(--lv,0) * 18px)}
 .bullet::before{content:'▸';color:var(--accent);position:absolute;left:calc(var(--lv,0) * 18px)}
@@ -245,6 +249,7 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
                 </span>
               </div>
               <div class="topic-bullets">
+                <div class="tb-inner">
                 <div class="bullets-sortable" :data-topic-id="topic.id">
                 <template x-for="b in (topic.bullets || [])" :key="b.id">
                   <div class="bullet" :class="'lv' + (b.level || 0)" :style="'--lv:' + (b.level || 0)"
@@ -263,6 +268,7 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
                 </template>
                 </div>
                 <div class="bullet" style="color:var(--accent);cursor:pointer;opacity:0.6" @click.stop="addBulletModal(topic.id)">+ Add Bullet</div>
+                </div>
               </div>
             </div>
           </template>
@@ -402,11 +408,13 @@ h1,h2,h3,h4{font-family:'Kanit',sans-serif;font-weight:600}
                           <span x-text="topic.title"></span>
                         </div>
                         <div class="topic-bullets">
+                          <div class="tb-inner">
                           <template x-for="b in (topic.bullets || [])" :key="'pb-'+b.id">
                             <div class="bullet" :class="'lv' + (b.level || 0)" :style="'--lv:' + (b.level || 0)">
                               <span x-text="b.text"></span>
                             </div>
                           </template>
+                          </div>
                         </div>
                       </div>
                     </template>
