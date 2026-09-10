@@ -186,7 +186,7 @@ h1,h2,h3{font-family:'Kanit',sans-serif;font-weight:800;line-height:1.15}
 <div class="hint" :style="'opacity:' + (hintVisible ? 0.7 : 0)">
   <span><kbd>←</kbd> <kbd>→</kbd> เลื่อน</span>
   <span><kbd>M</kbd> <span x-text="view==='map' ? 'สไลด์' : 'แผนที่'"></span></span>
-  <span x-show="view==='map'"><kbd>0</kbd> ภาพรวม</span>
+  <span x-show="view==='map'"><kbd>0</kbd> รีเซ็ตมุมมอง</span>
   <span x-show="view==='map'">ลากเมาส์ = เลื่อนแผนที่</span>
   <span><kbd>F</kbd> เต็มจอ</span>
 </div>
@@ -206,7 +206,7 @@ function liveApp() {
     view: new URLSearchParams(location.search).get('view') === 'map' ? 'map' : 'slides',
     map: { nodes: [], edges: [] },
     baseScale: 1,
-    overview: false,
+    home: { k: 1, fx: MCX, fy: MCY },
     panX: 0, panY: 0, dragging: false, drag: null, moved: 0, userZoom: 1,
 
     get slides() {
@@ -370,7 +370,13 @@ function liveApp() {
     syncEdges() {
       this.map.edges.forEach(e => e.el && e.el.classList.toggle('show', this.vis(e.node)));
     },
-    refreshMap() { this.measure(); this.declutter(); this.drawEdges(); this.syncEdges(); },
+    refreshMap() {
+      this.measure();
+      this.declutter();
+      this.home = this.frame(this.map.nodes, 0.3, 1.4);
+      this.drawEdges();
+      this.syncEdges();
+    },
 
     // The rendered box of a label in canvas coordinates.
     box(nd) {
@@ -456,33 +462,23 @@ function liveApp() {
       this.next();
     },
 
-    // Zoom onto the branch being talked about; 0 pulls back to the whole map.
+    // The view belongs to the presenter: revealing a node never moves the
+    // camera. It changes only by dragging, the zoom buttons, or a reset.
     get mapTransform() {
-      const shown = this.map.nodes.filter(nd => this.vis(nd));
-      const cti = this.idx - 1;
-      const grp = shown.filter(nd => nd.ti === cti);
-      const f = this.overview ? this.frame(shown, 0.3, 1.4)
-              : grp.length ? this.frame([this.map.nodes[0], ...grp], 0.45, 1.5)
-              : { k: 1, fx: MCX, fy: MCY };
-
       // Bias the framing right + up: the camera sits bottom-left on the stream.
-      const k = f.k * this.userZoom;
-      const tx = MCX + 110 - f.fx * k + this.panX;
-      const ty = MCY - 80 - f.fy * k + this.panY;
+      const k = this.home.k * this.userZoom;
+      const tx = MCX + 110 - this.home.fx * k + this.panX;
+      const ty = MCY - 80 - this.home.fy * k + this.panY;
       return `transform: translate(${tx}px, ${ty}px) scale(${k})`;
     },
 
     next() {
       const s = this.cur;
-      this.overview = false;
-      this.panX = 0; this.panY = 0;
       if (s.type === 'topic' && this.revealed < s.bullets.length) { this.revealed++; return; }
       if (this.idx < this.slides.length - 1) { this.idx++; this.revealed = 0; }
     },
     prev() {
       const s = this.cur;
-      this.overview = false;
-      this.panX = 0; this.panY = 0;
       if (s.type === 'topic' && this.revealed > 0) { this.revealed--; return; }
       if (this.idx > 0) {
         this.idx--;
@@ -496,7 +492,7 @@ function liveApp() {
       if (k === 'ArrowRight' || k === ' ' || k === 'ArrowDown' || k === 'PageDown' || k === 'Enter') { e.preventDefault(); this.next(); }
       else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') { e.preventDefault(); this.prev(); }
       else if (k === 'm' || k === 'M') { this.view = this.view === 'map' ? 'slides' : 'map'; }
-      else if (k === '0') { this.overview = !this.overview; this.panX = 0; this.panY = 0; }
+      else if (k === '0') { this.resetView(); }
       else if (k === 'f' || k === 'F') { this.toggleFs(); }
       else if (k === 'Home') { this.idx = 0; this.revealed = 0; }
       else if (k === 'End') { this.idx = this.slides.length - 1; this.revealed = 0; }
